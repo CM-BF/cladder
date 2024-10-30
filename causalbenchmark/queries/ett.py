@@ -93,15 +93,15 @@ class EffectTreatmentTreatedQuery(ManualEstimandQueryType):
 
 	def generate_questions(self, scm, labels):
 		try:
-			meta = self.meta_data(scm, labels)
-			given_info = self.verbalize_given_info(scm, labels)
+			meta = self.meta_data(scm, labels)  # - get symbolic query, observations, & estimands using observations -
+			given_info = self.verbalize_given_info(scm, labels) # - verbalize the query -
 			# background = self.verbalize_background(scm, labels)
 		except AttributeError as e:
 			raise self._QueryFailedError(str(e))
 
 		for treated in ([True, False] if self.ask_treatments else [True]):
 
-			lb, ub = scm.ett_bounds(self.outcome, self.treatment, treated=treated)
+			lb, ub = scm.ett_bounds(self.outcome, self.treatment, treated=treated) # - calculate ett directly -
 
 			sign = None if lb*ub <= 0 else (1 if ub > 0 else -1)
 

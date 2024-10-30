@@ -50,7 +50,7 @@ class ManualEstimandQueryType(MetricQueryType):
 
 
 	def symbolic_given_info(self, scm, **details):
-		terms = self._check_known_estimand_terms(scm)
+		terms = self._check_known_estimand_terms(scm) # -- Obtain necessary observations --
 		mechs = [scm.distribution(name, *parents) for name, parents in terms]
 		return {str(mech): mech.param.tolist() for mech in mechs}
 
@@ -66,8 +66,8 @@ class ManualEstimandQueryType(MetricQueryType):
 	        'rung': self.rung,
 	        'formal_form': self.formal_form.format(treatment=self.treatment, outcome=self.outcome),
 
-			'given_info': self.symbolic_given_info(scm),
-			'estimand': self.symbolic_estimand(scm),
+			'given_info': self.symbolic_given_info(scm), # -- Obtain necessary observations --
+			'estimand': self.symbolic_estimand(scm), # -- Obtain the estimand equation using observations --
 
 			'treatment': self.treatment,
 			'outcome': self.outcome,

@@ -343,9 +343,9 @@ class _MechanismCorrelationBuilder(ParameterBuilder):
 		assert len(constraints) > 0, 'must have at least one constraint'
 		assert sum(map(abs, constraints)) <= 1, f'constraints must sum to less than 1, got {constraints}'
 
-		lims = np.zeros([2] * len(constraints))
+		lims = np.zeros([2] * len(constraints)) # [0.3, 0.4] -> [[0, 0.4], [0.3, 0.7]]
 
-		all = [slice(None)] * len(constraints)
+		all = [slice(None)] * len(constraints) # -- combine the constraint combinations --
 		for i, diff in enumerate(constraints):
 			sel = all.copy()
 			sel[i] = 1
@@ -353,9 +353,9 @@ class _MechanismCorrelationBuilder(ParameterBuilder):
 		lims -= lims.min()
 
 		order = np.argsort(lims.reshape(-1))
-		line = lims.reshape(-1)[order]
-		gaps = line[1:] - line[:-1]
-		samples = self._sample_gapped_numbers(gaps, bias=bias)
+		line = lims.reshape(-1)[order] # [0, 0.3, 0.4, 0.7]
+		gaps = line[1:] - line[:-1]  # [0.3, 0.1, 0.3]
+		samples = self._sample_gapped_numbers(gaps, bias=bias) # Sample 4 numbers that the gaps between neighbors larger than [0.3, 0.1, 0.3], that also means numbers are larger than [0, 0.3, 0.4, 0.7]
 		gap_blobs = np.isclose(gaps, 0)
 		gap_indices, gap_sizes = self._find_blobs(gap_blobs)
 		indices = gap_indices

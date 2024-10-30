@@ -258,7 +258,7 @@ class BayesLike(CausalProcess, AbstractTool):
 		graph = {}
 		pool = {}
 
-		for x in self.variables():
+		for x in self.variables(): # - the varaibles() call the tools() return _sources in a REVERSE way, so later mechanisms will occupy the variable spaces (since no overwrite) and have higher priority -
 			graph[x.name] = x.parents
 			pool[x.name] = self._as_pom_node(x, pool)
 
@@ -318,7 +318,7 @@ class BayesLike(CausalProcess, AbstractTool):
 
 	# region Direct Stats
 	def marginals(self, **conditions: int) -> Dict[str, float]:
-		net = self.as_pom()
+		net = self.as_pom() # Later added mechanisms have higher priority. [That is how intervention works]
 		raw = net.predict_proba(conditions)
 		return {state.name: term if state.name in conditions else float(term.parameters[0][1])
 		        for state, term in zip(net.states, raw)}
@@ -460,7 +460,7 @@ class BayesLike(CausalProcess, AbstractTool):
 		returns a new causal process where the interventions are applied
 		soft interventions allowed
 		'''
-		return self.context().include(IndependentBernoullis(**interventions))
+		return self.context().include(IndependentBernoullis(**interventions)) # -- all these mechanisms, tools are hidden by _added_tools and _sources. --
 
 
 	def context(self, size=None, **kwargs):
@@ -475,7 +475,7 @@ class BayesLike(CausalProcess, AbstractTool):
 
 	def unordered_variables(self) -> Iterator[AbstractBernoulliMechanism]:
 		past = set()
-		for tool in self.tools():
+		for tool in self.tools(): # - the tools() return _sources in a REVERSE way -
 			if isinstance(tool, AbstractVariable):
 				if tool.name not in past:
 					yield tool

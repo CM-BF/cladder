@@ -1,0 +1,43 @@
+name: cladder
+channels:
+  - pytorch
+  - nvidia
+  - conda-forge
+dependencies:
+  - python=3.10
+  - pytorch==2.1.2
+  - torchvision==0.16.2
+  - torchaudio==2.1.2
+  - pytorch-cuda=11.8
+  - cuda-nvcc=11.8
+  - scikit-learn
+  - jupyterlab
+  - tqdm
+  - matplotlib
+  - scipy=1.11
+  - jsonnet
+  - cmake
+  - pandas
+  - transformers
+  - pomegranate==0.14.8
+  - pip
+  - pip:
+      - munch
+      - ruamel.yaml
+      - typed-argument-parser
+      - pynvml
+      - psutil
+      - jsonargparse[all]
+      - docopt
+      - wandb
+      - python-dotenv
+      - cilog
+      - einops
+      - openai
+      - omnibelt==0.7.6
+      - omnifig==1.0.1
+      - omniply==0.1.1
+      - pytest
+      - plotly
+      - tabulate
+      - efficiency
