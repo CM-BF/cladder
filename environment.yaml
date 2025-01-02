@@ -20,6 +20,7 @@ dependencies:
   - pandas
   - transformers
   - pomegranate==0.14.8
+  - dowhy
   - pip
   - pip:
       - munch
