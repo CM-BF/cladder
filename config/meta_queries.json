@@ -1,0 +1,10 @@
+[{"query_type": "marginal", "query_type_str": "marginal probability", "query_id": 0},
+ {"query_type": "correlation", "query_type_str": "conditional probability", "query_id": 1},
+ {"query_type": "exp_away", "query_type_str": "explaining away effect", "query_id": 2},
+ {"query_type": "backadj", "query_type_str": "backdoor adjustment set", "query_id": 3},
+ {"query_type": "ate", "query_type_str": "average treatment effect", "query_id": 4},
+ {"query_type": "collider_bias", "query_type_str": "collider bias", "query_id": 5},
+ {"query_type": "det-counterfactual", "query_type_str": "normal counterfactual question", "query_id": 6},
+ {"query_type": "ett", "query_type_str": "average treatment effect on treated", "query_id": 7},
+ {"query_type": "nde", "query_type_str": "natural direct effect", "query_id": 8},
+ {"query_type": "nie", "query_type_str": "natural indirect effect", "query_id": 9}]

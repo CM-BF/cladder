@@ -6,13 +6,14 @@ from pathlib import Path
 # enable_cot = False
 
 # enable_fewshot = False
+from typing import Literal
 
 guide_cot_until_step = [None, 1, 2, 3, 4][0]
 
 
 openai_org_alias = 'OPENAI_ORG_ID'
 
-enable_pdb = False
+# enable_pdb = False
 
 paraphrase_i = 0  # 0,1,2,3,4
 missing_step = [
@@ -23,31 +24,27 @@ missing_step = [
     'given_info',
 ][0]
 
-ask_about = [
-    'answer',
-    'graph',
-    'query_type',
-    'step1',  # TODO
-    'given_info',
-    'reasoning',  # TODO
-    'arithmetic',  # TODO
-][0]
+# ask_about = [
+#     'answer',
+#     'graph',
+#     'query_type',
+#     'step1',  # TODO
+#     'given_info',
+#     'reasoning',  # TODO
+#     'arithmetic',  # TODO
+# ][2]
 
 openai_key_alias = 'OPENAI_API_KEY'
 
-root_path = Path(__file__).parent.parent.parent.absolute()
-data_name = 'cladder-v1/cladder-v1-q-balanced'
+ROOT_PATH = Path(__file__).parent.parent.parent.absolute()
 
-models_data_name = 'cladder-v1/cladder-v1-meta-models'
-with open(f'{root_path}/data/{models_data_name}.json', 'r') as f:
-    import json
-
-    meta_models = json.load(f)
 
 
 class DataFileList:
-    def __init__(self, file_pattern=f'{root_path}/data/{data_name}.json'):
+    def __init__(self, data_name = 'cladder-v1/cladder-v1-q-balanced', ask_about=None):
         from glob import glob
+
+        file_pattern = f'{ROOT_PATH}/data/{data_name}.json'
 
         data_files = sorted(glob(file_pattern))
         print('Starting to get data from these files:', data_files)
@@ -57,7 +54,7 @@ class DataFileList:
             sys.exit()
         data_objs = []
         for file in data_files:
-            data_obj = DataFile(file)
+            data_obj = DataFile(file, ask_about=ask_about)
             data_objs.append(data_obj)
         self.data_objs = data_objs
 
@@ -65,14 +62,14 @@ class DataFileList:
 class DataFile:
     metadata_keys = ['sensical', 'query_type', 'rung', 'phenomenon', 'simpson']
 
-    def __init__(self, file, len=None):
+    def __init__(self, file, len=None, ask_about=None):
         self.read_in_file = file
         self.file_shuffled = file.replace('.json', '_rand.json')
 
-        self.data = self.get_raw_data(file)
+        self.data = self.load_data(file, ask_about=ask_about)
         self.data = self.data[:len]
 
-    def get_ids_to_exclude(self, file=f'{root_path}/data/updated_data_ids_not_ready.txt'):
+    def get_ids_to_exclude(self, file=f'{ROOT_PATH}/data/updated_data_ids_not_ready.txt'):
         from efficiency.log import fread
         data = '\n'.join(fread(file))
         ids = data.split(', ')
@@ -92,10 +89,17 @@ class DataFile:
         datum['background'] = datum['background'].replace(paraphrases[0], paraphrases[paraphrase_i])
         return datum
 
-    def get_raw_data(self, file, inspect_data=False, exclude_query_types={}, shuffle=True):
+    def load_data(self, file, inspect_data=False, exclude_query_types={}, shuffle=True, ask_about=None):
         from efficiency.log import fread, show_var, fwrite, print_df_value_count
         from efficiency.function import random_sample, search_nested_dict
 
+        models_data_name = 'cladder-v1/cladder-v1-meta-models'
+        with open(f'{ROOT_PATH}/data/{models_data_name}.json', 'r') as f:
+            import json
+
+            meta_models = json.load(f)
+
+        # --- Load raw data ---
         if not shuffle: data = fread(file)
         if shuffle:
             import os
@@ -117,6 +121,7 @@ class DataFile:
         data = [i for i in data if i['question_id'] not in ids_to_exclude]
         show_var(['len(data)'])
 
+        # --- Processing ---
         new_data = []
         for datum in data:
             model = meta_models[datum['meta']['model_id']]
@@ -134,7 +139,9 @@ class DataFile:
                                       'rung': datum['meta']['rung']}
 
             datum = self.paraphrase(datum)
-            new_datum = {'old': datum}
+            new_datum = {'old': datum} # --- 'old' means the raw data ---
+
+            # --- Extract some target data ---
             for k in ["question_id", "descriptive_id", ] + self.metadata_keys:
                 v = search_nested_dict(datum, k)
                 if v is not None:
@@ -158,8 +165,6 @@ class DataFile:
             df = pd.DataFrame(data)
             columns = (set(self.metadata_keys) & df.columns) | {'truth', }
             print_df_value_count(df, columns)
-            # import pdb;
-            # pdb.set_trace()
         return data
 
 
@@ -182,33 +187,11 @@ class TextInterfaceForLLMs:
         'Yes': 1,
         'No': 0,
     }
-    query_list_file = f'{root_path}/config/meta_queries.json'
+    query_list_file = f'{ROOT_PATH}/config/meta_queries.json'
     from efficiency.log import fread
     query_str2id = {i['query_type_str']: i['query_id'] for i in fread(query_list_file, verbose=False)}
+    query_type2id = {i['query_type']: i['query_id'] for i in fread(query_list_file, verbose=False)}
 
-    if ask_about == 'query_type':
-        prefix2norm = query_str2id
-        truth2norm = query_str2id
-
-    from efficiency.log import verbalize_list_of_options
-    q_type2prompt_suffix = {
-        'answer': f'Start your answer with {verbalize_list_of_options(prefix2norm)}, followed by additional reasoning or evidence'
-                  f' to support your explanation.',
-        'graph': 'Identify the causal graph that depicts the relationships in the scenario. {var_notions} '
-                 'The diagram should simply consist of edges denoted in "var1 -> var2" format, separated by commas.',
-        'query_type': f'Identify the type of query implied by the main question. Choices include'
-                      f' {verbalize_list_of_options(query_str2id)}. '
-                      f'Your answer should only be a term from the list above, enclosed in quotation marks.',
-        'step1':
-            'Translate the query into its formal mathematical expression based on its type, utilizing the "do(·)" notation or counterfactual notations as needed.',
-        'given_info': 'Extract all the available data. Your answer should contain '
-                      'nothing but marginal probabilities and conditional probabilities in the form "P(...)=..." or "P(...|...)=...", each probability being separated by a semicolon. Stick to the previously mentioned denotations for the variables.',
-        'reasoning': 'Given all the information above, deduce the estimand using skills such as do-calculus, counterfactual prediction, and the basics of probabilities. Answer step by step.',
-        'arithmetic': 'Insert the relevant data into the estimand, perform basic arithmetic calculations, and derive the '
-                      'final answer. Answer step by step.',
-        'cot_final': f'Based on all the reasoning above, output one word to answer the initial question with just '
-                     f'{verbalize_list_of_options(prefix2norm)}.',
-    }
     q_type2step_prefix = {
         "graph": "Extract the causal graph",
         "query_type": "Determine the query type",
@@ -237,10 +220,25 @@ class TextInterfaceForLLMs:
         "neither ",
         "none ",
     ]
-    prefix2norm.update({i: -1 for i in refusal_to_answer_prefices})
-    prefix2norm = dict(sorted(prefix2norm.items(), key=lambda i: len(i[0]), reverse=True))
+
+    long_query_types = {
+        'correlation': 'conditional probability',
+        'marginal': 'marginal probability',
+        'exp_away': 'explaining away effect',
+        'ate': 'average treatment effect',
+        'backadj': 'backdoor adjustment set',
+        'collider_bias': 'collider bias',
+        'ett': 'average treatment effect on treated',
+        'nde': 'natural direct effect',
+        'nie': 'natural indirect effect',
+        'det-counterfactual': 'normal counterfactual question'
+    }
+
 
     def init_prompt(self):
+        r'''
+        Compose COT prompts from the steps
+        '''
         if missing_step:
             del (self.q_type2step_prefix[missing_step])
         cot_steps = [
@@ -253,14 +251,45 @@ class TextInterfaceForLLMs:
         for key in ['query_type', 'graph', 'step1', 'given_info', ]:
             self.q_type2prompt_suffix[key] += ' Answer concisely.'
 
-    def __init__(self, save_path, list_of_dicts=None, enable_fewshot=False, enable_cot=False):
-        self.init_prompt()
+    def __init__(self, save_path, ask_about=None, enable_fewshot=False, enable_cot=False):
+        if ask_about == 'query_type':
+            self.prefix2norm = self.query_str2id
+            self.truth2norm = self.query_type2id
+
+        from efficiency.log import verbalize_list_of_options
+        self.q_type2prompt_suffix = {
+            'answer': f'Start your answer with {verbalize_list_of_options(self.prefix2norm)}, followed by additional reasoning or evidence'
+                      f' to support your explanation.',
+            'graph': 'Identify the causal graph that depicts the relationships in the scenario. {var_notions} '
+                     'The diagram should simply consist of edges denoted in "var1 -> var2" format, separated by commas.',
+            'query_type': f'Identify the type of query implied by the main question. Choices include'
+                          f' {verbalize_list_of_options(self.query_str2id)}. '
+                          f'Your answer should only be a term from the list above, enclosed in quotation marks.',
+            'step1':
+                'Translate the query into its formal mathematical expression based on its type, utilizing the "do(·)" notation or counterfactual notations as needed.',
+            'given_info': 'Extract all the available data. Your answer should contain '
+                          'nothing but marginal probabilities and conditional probabilities in the form "P(...)=..." or "P(...|...)=...", each probability being separated by a semicolon. Stick to the previously mentioned denotations for the variables.',
+            'reasoning': 'Given all the information above, deduce the estimand using skills such as do-calculus, counterfactual prediction, and the basics of probabilities. Answer step by step.',
+            'arithmetic': 'Insert the relevant data into the estimand, perform basic arithmetic calculations, and derive the '
+                          'final answer. Answer step by step.',
+            'cot_final': f'Based on all the reasoning above, output one word to answer the initial question with just '
+                         f'{verbalize_list_of_options(self.prefix2norm)}.',
+        }
+        self.prefix2norm.update({i: -1 for i in self.refusal_to_answer_prefices})
+        self.prefix2norm = dict(sorted(self.prefix2norm.items(), key=lambda i: len(i[0]), reverse=True))
+
+
+
+        self.init_prompt() # Compose COT prompts from the steps
         self.save_path = save_path
         self.enable_fewshot = enable_fewshot
         self.enable_cot = enable_cot
+        self.ask_about = ask_about
+
+    def prepare_prompt(self, list_of_dicts):
         if list_of_dicts is not None:
             self._prepare_fewshot(list_of_dicts)
-            self.data_in = self.prompt_composer(list_of_dicts)
+            self.data_in = self.prompt_composer(list_of_dicts, self.ask_about)
 
     def _datum2var_notions(self, datum, keep_var_values=False):
         var_symb_suff = 'name'
@@ -280,6 +309,9 @@ class TextInterfaceForLLMs:
         return var_notions
 
     def _prepare_fewshot(self, data):
+        r'''
+        Compose few-shot examples for each query type
+        '''
         self.fewshot_examples = {'correlation': [20946, 22532, 14193],
                                  'ate': [2023, 28681, 27304],
                                  'marginal': [26874, 25572, 16429],
@@ -293,7 +325,7 @@ class TextInterfaceForLLMs:
         from efficiency.function import flatten_list
         example_ids = flatten_list(self.fewshot_examples.values())
         id2datum = {i['question_id']: i for i in data if i['question_id'] in example_ids}
-        self.id2fewshotprompt = {id: FewShotExamples().compose_qa_pair(datum, self.enable_cot) for id, datum in id2datum.items()}
+        self.id2fewshotprompt = {id: FewShotExamples(self).compose_qa_pair(datum, self.enable_cot) for id, datum in id2datum.items()}
 
     def _compose_fewshot_prefix(self, datum):
         exclude_id = datum['question_id']
@@ -302,7 +334,7 @@ class TextInterfaceForLLMs:
         few_shot_prompt = '\n----------\n'.join(few_shot_prompt) + '\n----------\n'
         return few_shot_prompt
 
-    def prompt_composer(self, data):
+    def prompt_composer(self, data, ask_about):
         def convert_truth_to_norm(value):
             return self.truth2norm.get(value.lower() if isinstance(value, str) else value, value)
 
@@ -310,7 +342,7 @@ class TextInterfaceForLLMs:
 
         for datum in data:
             truth_norm = convert_truth_to_norm(datum['truth'])
-
+            # -- Complete all thoughts: Change {var_notions} to e.g. Use "X" to represent "eating citrus". Use "V2" to represent "vitmain C". Use "Y" to represent "curly hair" --
             q2prompt = deepcopy(self.q_type2prompt_suffix)
             q2prompt = {k: v.format(var_notions=self._datum2var_notions(datum, keep_var_values=k == 'given_info'))
                         for k, v in q2prompt.items()
@@ -318,14 +350,14 @@ class TextInterfaceForLLMs:
             default_query_suffix = q2prompt[ask_about]
             key = 'raw_prompt_without_q' if ask_about in {'graph', 'given_info'} else 'raw_prompt'
             # TODO: add few-shot to prompt here.
-            prompt = f"{datum[key]}\n\n{default_query_suffix}"
+            prompt = f"{datum[key]}\n\n{default_query_suffix}" # Simpliest prompt: Background + Answer_requirement
             if self.enable_cot:
-                prompt = f"{datum[key]}\n\n{q2prompt['cot']}"
+                prompt = f"{datum[key]}\n\n{q2prompt['cot']}" # Concatenate the COT guidance AFTER the prompt
             if self.enable_fewshot:
-                prompt = f"{self._compose_fewshot_prefix(datum)}{prompt}"
+                prompt = f"{self._compose_fewshot_prefix(datum)}{prompt}" # Concat few-shot examples BEFORE the prompt
             if guide_cot_until_step:
-                cot_guide = FewShotExamples().compose_qa_pair(datum, self.enable_cot, guide_cot_until_step=guide_cot_until_step)
-                prompt = f"{prompt}{cot_guide}"
+                cot_guide = FewShotExamples(self).compose_qa_pair(datum, self.enable_cot, guide_cot_until_step=guide_cot_until_step)
+                prompt = f"{prompt}{cot_guide}" # Concat given COT guidance AFTER the prompt
 
             del datum['raw_prompt'], datum['raw_prompt_without_q'], datum['old']
             datum.update({
@@ -367,22 +399,12 @@ class TextInterfaceForLLMs:
 class FewShotExamples():
     from typing import Dict, Any, Iterable
 
-    long_query_types = {
-        'correlation': 'Correlation',
-        'marginal': 'Marginal Distribution',
-        'exp_away': 'Expaining Away Effect',
-        'ate': 'Average Treatment Effect',
-        'backadj': 'Backdoor Adjustment Set',
-        'collider_bias': 'Collider Bias',
-        'ett': 'Effect of the Treatment on the Treated',
-        'nde': 'Natural Direct Effect',
-        'nie': 'Natural Indirect Effect',
-        'det-counterfactual': 'Counterfactual'
-    }
-
     known_steps = ['variables', 'graph', 'query_type', 'formal_form', 'available_data',  # parsing
                    'estimand', 'estimate', 'interpretation'  # reasoning
                    ]
+
+    def __init__(self, text_interface):
+        self.text_interface = text_interface
 
 
     def compose_qa_pair(self, datum, enable_cot, guide_cot_until_step=None):
@@ -399,13 +421,15 @@ class FewShotExamples():
         return qa_pair
 
     def sub_question_prompts(self, data: Dict[str, Any], include_steps: Iterable = ('variables', 'graph')):
-        '''
+        r'''
+        Compose question : answer pairs for each sub step
+
         when given an unordered collection of known steps returns a dict of solved sub-questions and their answers
         when given a list or tuple of known steps returns the corresponding list of solved sub-questions and their answers
 
         Note: adjustement set questions are not supported
         '''
-        self.q_type2step_prefix = TextInterfaceForLLMs.q_type2step_prefix
+        self.q_type2step_prefix = self.text_interface.q_type2step_prefix
         known_steps = self.known_steps
         data = data['old']
         # data['reasoning'] = data['old']['reasoning']
@@ -427,7 +451,7 @@ class FewShotExamples():
             terms['graph'] = f'Step 1) {self.q_type2step_prefix["graph"]}: {step1}.'
 
         qtype = data['meta']['query_type']
-        query_title = self.long_query_types[qtype].lower()
+        query_title = self.text_interface.long_query_types[qtype].lower()
         if 'query_type' in include_steps:
             terms['query_type'] = f'Step 2) {self.q_type2step_prefix["query_type"]}: "{query_title}".'
 
@@ -476,7 +500,7 @@ class FewShotExamples():
 
 
 class Scorer:
-    def __init__(self, files, data_list_of_dicts=None):
+    def __init__(self, files, ask_about, data_list_of_dicts=None):
         if not len(files):
             print('No files for evaluation')
             import sys
@@ -492,9 +516,9 @@ class Scorer:
         import pandas as pd
         df = pd.DataFrame(data_list)
         # df = pd.read_csv(file, index_col=None)
-        self.truth_pred_scorer(df)
+        self.truth_pred_scorer(df, ask_about)
 
-    def apply_score_func(self, df, pred_key='pred_norm', truth_key='truth_norm'):
+    def apply_score_func(self, df, ask_about, pred_key='pred_norm', truth_key='truth_norm'):
         if ask_about in {'graph'}:
             pred_key = 'pred'
             truth_key = 'truth'
@@ -542,11 +566,11 @@ class Scorer:
 
         return df
 
-    def truth_pred_scorer(self, df):
+    def truth_pred_scorer(self, df, ask_about):
         df.drop(['prompt', 'question_id'], axis=1, inplace=True)
 
         # - 1. Get scores: Concat calculated scores to the df with customized score function -
-        df = self.apply_score_func(df)
+        df = self.apply_score_func(df, ask_about)
         # df['score'] = (df['pred_norm'] == df['truth_norm'])
 
         if ask_about not in {'graph'}:
@@ -582,7 +606,7 @@ class Scorer:
         import pandas as pd
         res_df = pd.concat(res_dfs) # - a weird way to show the performance -
         print(res_df)
-        res_df.to_csv(f'{root_path}/outputs/performance.csv')
+        res_df.to_csv(f'{ROOT_PATH}/outputs/performance.csv')
 
         # -- 4. Aggregate the results by query_type x model_version | score --
         def pivot_df(df, rows='query_type', columns='model_version', score_col='score', verbose=True):
@@ -636,9 +660,9 @@ class Tester:
         from efficiency.function import set_seed
         set_seed()
 
-    def cot(self, query: Any, chat: Any, max_tokens: int):
+    def cot(self, query: Any, chat: Any, max_tokens: int, cot_final: str):
         datum = {}
-        queries = [query, TextInterfaceForLLMs.q_type2prompt_suffix['cot_final']]
+        queries = [query, cot_final]
         for query_i, query in enumerate(queries):
             response = chat.ask(
                 query,
@@ -650,13 +674,17 @@ class Tester:
         return response
 
     def run_default_test(self, just_scoring: bool=False, enable_cot: bool=False,
-                         enable_fewshot: bool=False, model_versions: List[str]=[]):
+                         enable_fewshot: bool=False, model_versions: List[str]=[],
+                         ask_about: Literal['answer', 'graph', 'query_type', 'step1', 'given_info', 'reasoning', 'arithmetic']='answer',
+                         majority_vote: bool=False):
         """
         Args:
             just_scoring: if True, the function will only score the existing responses in the files
             enable_cot: if True, the function will guide the model to answer the question step by step
             enable_fewshot: if True, the function will provide the model with a few-shot example before asking the question
             model_versions: a list of model versions to be tested
+            ask_about: the type of question to be asked: 'answer', 'graph', 'query_type', 'step1', 'given_info', 'reasoning', 'arithmetic'
+            majority_vote: if True, the function will use majority vote to determine the final answer
         Returns:
         """
 
@@ -703,10 +731,6 @@ You are an expert in causal inference. The following question is not a typical c
             #                system_prompt=system_prompt, openai_key_alias=openai_key_alias,
             #                openai_org_alias=openai_org_alias,
             #                )
-            chat = Chatbot(model_version=model_version, system_prompt=system_prompt, max_tokens=max_tokens)
-            get_pred = lambda i: chat.ask(i)
-            if enable_cot:
-                get_pred = lambda i: self.cot(i, chat, max_tokens)
 
             # == make file name ==
             cot_suffix = 'cot' if enable_cot else ''
@@ -714,36 +738,53 @@ You are an expert in causal inference. The following question is not a typical c
                 cot_suffix += str(guide_cot_until_step) if guide_cot_until_step is not None else ''
             fewshot_suffix = '_10shot' if enable_fewshot else ''
             para_suffix = f'_pa{para_i}' if para_i else ''
+            majority_vote_suffix = '_majority' if majority_vote else ''
+            assert majority_vote and ask_about == 'query_type' or not majority_vote
 
             write_out_file = \
-                f'{root_path}/outputs/{model_version}{cot_suffix}' \
-                f'{fewshot_suffix}{ask_about_suffix}{missing_step_suffix}{para_suffix}.csv'
-            # -- make file name end --
+                f'{ROOT_PATH}/outputs/{model_version}{cot_suffix}' \
+                f'{fewshot_suffix}{ask_about_suffix}{missing_step_suffix}{para_suffix}{majority_vote_suffix}.csv'
             write_out_files.append(write_out_file)
+            # == make file name end ==
 
-            df_list = DataFileList()
+            # --- Create LLM Text interface taking charge of template/prompt composer/response processor ---
+            text_interface = TextInterfaceForLLMs(write_out_file, ask_about=ask_about, enable_fewshot=enable_fewshot,
+                                                  enable_cot=enable_cot)
+            chat = Chatbot(model_version=model_version, system_prompt=system_prompt, max_tokens=max_tokens)
+            get_pred = lambda i: chat.ask(i)
+            if enable_cot:
+                get_pred = lambda i: self.cot(i, chat, max_tokens,
+                                              cot_final=text_interface.q_type2prompt_suffix['cot_final'])
+
+            df_list = DataFileList(ask_about=ask_about)
             for data_file_obj in df_list.data_objs:
                 if not just_scoring:
-                    data_obj = TextInterfaceForLLMs(write_out_file, data_file_obj.data, enable_fewshot=enable_fewshot, enable_cot=enable_cot)
-                    data = data_obj.data_in
+                    text_interface.prepare_prompt(data_file_obj.data)
+                    data = text_interface.data_in
 
                     tqdm_desc = f'Model={chat.model_version}, Data={write_out_file}'
 
                     print(tqdm_desc)
                     for datum_i, datum in tqdm(enumerate(data), desc=tqdm_desc):
                         query = datum['prompt']
-                        chat.clean_history()
-                        pred = get_pred(query)
+                        if majority_vote and ask_about == 'query_type':
+                            result = []
+                            for i in range(10):
+                                pred = get_pred(query)
+                                result.append(pred)
+                            from collections import Counter
+                            pred = Counter(result).most_common(1)[0][0]
+                        else:
+                            chat.clean_history()
+                            pred = get_pred(query)
                         datum['pred'] = pred
 
                         df = pd.DataFrame(data[:datum_i + 1])
                         df.to_csv(write_out_file, index=False)
-                else:
-                    data_obj = TextInterfaceForLLMs(write_out_file)
 
-                data_obj.response_processor(model_version=f"{model_version}{cot_suffix}")
+                text_interface.response_processor(model_version=f"{model_version}{cot_suffix}")
 
-        scorer = Scorer(write_out_files)
+        scorer = Scorer(write_out_files, ask_about)
 
 from jsonargparse import ArgumentParser, CLI
 
