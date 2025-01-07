@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from collections import Counter
 
 # just_scoring = True
 #
@@ -241,10 +242,15 @@ class TextInterfaceForLLMs:
         '''
         if missing_step:
             del (self.q_type2step_prefix[missing_step])
+        if self.ask_about in self.q_type2step_prefix.keys():
+            ask_step = list(self.q_type2step_prefix.keys()).index(self.ask_about)
+        else:
+            ask_step = len(self.q_type2step_prefix)
         cot_steps = [
             f'Step {i + 1}) {step}: {self.q_type2prompt_suffix[q_type]}'
-            for i, (q_type, step) in enumerate(self.q_type2step_prefix.items())
+            for i, (q_type, step) in enumerate(self.q_type2step_prefix.items()) if i <= ask_step
         ]
+
         cot_steps = '\n\n'.join(["Guidance: Address the question by following the steps below:"] + cot_steps)
         self.q_type2prompt_suffix['cot'] = cot_steps
 
@@ -278,13 +284,12 @@ class TextInterfaceForLLMs:
         self.prefix2norm.update({i: -1 for i in self.refusal_to_answer_prefices})
         self.prefix2norm = dict(sorted(self.prefix2norm.items(), key=lambda i: len(i[0]), reverse=True))
 
-
-
+        self.ask_about = ask_about
         self.init_prompt() # Compose COT prompts from the steps
         self.save_path = save_path
         self.enable_fewshot = enable_fewshot
         self.enable_cot = enable_cot
-        self.ask_about = ask_about
+
 
     def prepare_prompt(self, list_of_dicts):
         if list_of_dicts is not None:
@@ -325,7 +330,7 @@ class TextInterfaceForLLMs:
         from efficiency.function import flatten_list
         example_ids = flatten_list(self.fewshot_examples.values())
         id2datum = {i['question_id']: i for i in data if i['question_id'] in example_ids}
-        self.id2fewshotprompt = {id: FewShotExamples(self).compose_qa_pair(datum, self.enable_cot) for id, datum in id2datum.items()}
+        self.id2fewshotprompt = {id: QAComposer(self).compose_qa_pair(datum, self.enable_cot) for id, datum in id2datum.items()}
 
     def _compose_fewshot_prefix(self, datum):
         exclude_id = datum['question_id']
@@ -356,7 +361,7 @@ class TextInterfaceForLLMs:
             if self.enable_fewshot:
                 prompt = f"{self._compose_fewshot_prefix(datum)}{prompt}" # Concat few-shot examples BEFORE the prompt
             if guide_cot_until_step:
-                cot_guide = FewShotExamples(self).compose_qa_pair(datum, self.enable_cot, guide_cot_until_step=guide_cot_until_step)
+                cot_guide = QAComposer(self).compose_qa_pair(datum, self.enable_cot, guide_cot_until_step=guide_cot_until_step)
                 prompt = f"{prompt}{cot_guide}" # Concat given COT guidance AFTER the prompt
 
             del datum['raw_prompt'], datum['raw_prompt_without_q'], datum['old']
@@ -396,7 +401,7 @@ class TextInterfaceForLLMs:
         # print('')
 
 
-class FewShotExamples():
+class QAComposer():
     from typing import Dict, Any, Iterable
 
     known_steps = ['variables', 'graph', 'query_type', 'formal_form', 'available_data',  # parsing
@@ -770,9 +775,9 @@ You are an expert in causal inference. The following question is not a typical c
                         if majority_vote and ask_about == 'query_type':
                             result = []
                             for i in range(10):
+                                chat.clean_history()
                                 pred = get_pred(query)
                                 result.append(pred)
-                            from collections import Counter
                             pred = Counter(result).most_common(1)[0][0]
                         else:
                             chat.clean_history()
