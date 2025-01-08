@@ -1,4 +1,5 @@
 import os
+import warnings
 from pathlib import Path
 from collections import Counter
 
@@ -9,7 +10,7 @@ from collections import Counter
 # enable_fewshot = False
 from typing import Literal
 
-guide_cot_until_step = [None, 1, 2, 3, 4][0]
+# guide_cot_until_step = [None, 1, 2, 3, 4][0]
 
 
 openai_org_alias = 'OPENAI_ORG_ID'
@@ -29,10 +30,10 @@ missing_step = [
 #     'answer',
 #     'graph',
 #     'query_type',
-#     'step1',  # TODO
+#     'formal_form',  # TODO
 #     'given_info',
-#     'reasoning',  # TODO
-#     'arithmetic',  # TODO
+#     'estimand',  # TODO
+#     'estimate',  # TODO
 # ][2]
 
 openai_key_alias = 'OPENAI_API_KEY'
@@ -196,10 +197,10 @@ class TextInterfaceForLLMs:
     q_type2step_prefix = {
         "graph": "Extract the causal graph",
         "query_type": "Determine the query type",
-        "step1": "Formalize the query",
+        "formal_form": "Formalize the query",
         "given_info": "Gather all relevant data",
-        "reasoning": "Deduce the estimand using causal inference",
-        "arithmetic": "Calculate the estimate",
+        "estimand": "Deduce the estimand using causal inference",
+        "estimate": "Calculate the estimate",
     }
     #     q_type2prompt_suffix['cot'] = f'''
     # Hint: You can answer the question by following the subquestions below:
@@ -212,7 +213,7 @@ class TextInterfaceForLLMs:
     #
     # Step 4) Collect all the available data: {q_type2prompt_suffix["given_info"]}
     #
-    # Step 5) Solve for the estimand: {q_type2prompt_suffix["reasoning"]}
+    # Step 5) Solve for the estimand: {q_type2prompt_suffix["estimand"]}
     #     '''.strip()
 
     refusal_to_answer_prefices = [
@@ -254,10 +255,10 @@ class TextInterfaceForLLMs:
         cot_steps = '\n\n'.join(["Guidance: Address the question by following the steps below:"] + cot_steps)
         self.q_type2prompt_suffix['cot'] = cot_steps
 
-        for key in ['query_type', 'graph', 'step1', 'given_info', ]:
+        for key in ['query_type', 'graph', 'formal_form', 'given_info', ]:
             self.q_type2prompt_suffix[key] += ' Answer concisely.'
 
-    def __init__(self, save_path, ask_about=None, enable_fewshot=False, enable_cot=False):
+    def __init__(self, save_path, ask_about=None, enable_fewshot=False, enable_cot=False, given_cot_until_step=None):
         if ask_about == 'query_type':
             self.prefix2norm = self.query_str2id
             self.truth2norm = self.query_type2id
@@ -271,12 +272,12 @@ class TextInterfaceForLLMs:
             'query_type': f'Identify the type of query implied by the main question. Choices include'
                           f' {verbalize_list_of_options(self.query_str2id)}. '
                           f'Your answer should only be a term from the list above, enclosed in quotation marks.',
-            'step1':
+            'formal_form':
                 'Translate the query into its formal mathematical expression based on its type, utilizing the "do(·)" notation or counterfactual notations as needed.',
             'given_info': 'Extract all the available data. Your answer should contain '
                           'nothing but marginal probabilities and conditional probabilities in the form "P(...)=..." or "P(...|...)=...", each probability being separated by a semicolon. Stick to the previously mentioned denotations for the variables.',
-            'reasoning': 'Given all the information above, deduce the estimand using skills such as do-calculus, counterfactual prediction, and the basics of probabilities. Answer step by step.',
-            'arithmetic': 'Insert the relevant data into the estimand, perform basic arithmetic calculations, and derive the '
+            'estimand': 'Given all the information above, deduce the estimand using skills such as do-calculus, counterfactual prediction, and the basics of probabilities. Answer step by step.',
+            'estimate': 'Insert the relevant data into the estimand, perform basic arithmetic calculations, and derive the '
                           'final answer. Answer step by step.',
             'cot_final': f'Based on all the reasoning above, output one word to answer the initial question with just '
                          f'{verbalize_list_of_options(self.prefix2norm)}.',
@@ -285,6 +286,7 @@ class TextInterfaceForLLMs:
         self.prefix2norm = dict(sorted(self.prefix2norm.items(), key=lambda i: len(i[0]), reverse=True))
 
         self.ask_about = ask_about
+        self.given_cot_until_step = given_cot_until_step
         self.init_prompt() # Compose COT prompts from the steps
         self.save_path = save_path
         self.enable_fewshot = enable_fewshot
@@ -330,7 +332,8 @@ class TextInterfaceForLLMs:
         from efficiency.function import flatten_list
         example_ids = flatten_list(self.fewshot_examples.values())
         id2datum = {i['question_id']: i for i in data if i['question_id'] in example_ids}
-        self.id2fewshotprompt = {id: QAComposer(self).compose_qa_pair(datum, self.enable_cot) for id, datum in id2datum.items()}
+        ask_about_step = QAComposer.known_steps.index(self.ask_about)
+        self.id2fewshotprompt = {id: QAComposer(self).compose_qa_pair(datum, self.enable_cot, guide_cot_until_step=ask_about_step) for id, datum in id2datum.items()}
 
     def _compose_fewshot_prefix(self, datum):
         exclude_id = datum['question_id']
@@ -360,8 +363,12 @@ class TextInterfaceForLLMs:
                 prompt = f"{datum[key]}\n\n{q2prompt['cot']}" # Concatenate the COT guidance AFTER the prompt
             if self.enable_fewshot:
                 prompt = f"{self._compose_fewshot_prefix(datum)}{prompt}" # Concat few-shot examples BEFORE the prompt
-            if guide_cot_until_step:
-                cot_guide = QAComposer(self).compose_qa_pair(datum, self.enable_cot, guide_cot_until_step=guide_cot_until_step)
+            if self.given_cot_until_step:
+                ask_about_step = QAComposer.known_steps.index(self.ask_about)
+                if ask_about_step < self.given_cot_until_step:
+                    self.given_cot_until_step = ask_about_step
+                    warnings.warn(f'ask_about_step is {ask_about_step} < given_cot_until_step {self.given_cot_until_step}.')
+                cot_guide = QAComposer(self).compose_qa_pair(datum, self.enable_cot, guide_cot_until_step=self.given_cot_until_step)
                 prompt = f"{prompt}{cot_guide}" # Concat given COT guidance AFTER the prompt
 
             del datum['raw_prompt'], datum['raw_prompt_without_q'], datum['old']
@@ -404,7 +411,7 @@ class TextInterfaceForLLMs:
 class QAComposer():
     from typing import Dict, Any, Iterable
 
-    known_steps = ['variables', 'graph', 'query_type', 'formal_form', 'available_data',  # parsing
+    known_steps = ['variables', 'graph', 'query_type', 'formal_form', 'given_info',  # parsing
                    'estimand', 'estimate', 'interpretation'  # reasoning
                    ]
 
@@ -462,14 +469,14 @@ class QAComposer():
 
         formal_form = data['meta']['formal_form']  # should be equivalent to data['reasoning']['step2']
         if 'formal_form' in include_steps:
-            terms['formal_form'] = f'Step 3) {self.q_type2step_prefix["step1"]}: {formal_form}.'
+            terms['formal_form'] = f'Step 3) {self.q_type2step_prefix["formal_form"]}: {formal_form}.'
 
-        if 'available_data' in include_steps:
+        if 'given_info' in include_steps:
             step4 = data['reasoning']['step4'].replace('\n', '; ')
             if len(step4) == 0:
-                # terms['available_data'] = ''
+                # terms['given_info'] = ''
                 step4 = 'No relevant data is provided'
-            terms['available_data'] = f'Step 4) {self.q_type2step_prefix["given_info"]}: {step4}.'
+            terms['given_info'] = f'Step 4) {self.q_type2step_prefix["given_info"]}: {step4}.'
 
         estimand = data['meta'].get('estimand')  # should be equivalent to data['reasoning']['step3']
         if estimand is None:  # for rung 1 questions, estimand is the same as formal_form
@@ -477,14 +484,14 @@ class QAComposer():
             if qtype == 'collider_bias':
                 estimand = '0'
         if 'estimand' in include_steps:
-            terms['estimand'] = f'Step 5) {self.q_type2step_prefix["reasoning"]}: ' \
+            terms['estimand'] = f'Step 5) {self.q_type2step_prefix["estimand"]}: ' \
                                 f'We use causal inference to derive the estimand ' \
                                 f'implied by the causal graph for the query type "{query_title}":\n' \
                                 f'{formal_form}\n' \
                                 f'= {estimand}'
         if 'estimate' in include_steps:
             estimate = data['reasoning']['step5']
-            terms['estimate'] = f'Step 6) {self.q_type2step_prefix["arithmetic"]}:\n' \
+            terms['estimate'] = f'Step 6) {self.q_type2step_prefix["estimate"]}:\n' \
                                 f'{estimand}\n' \
                                 f'= {estimate}'
 
@@ -680,7 +687,8 @@ class Tester:
 
     def run_default_test(self, just_scoring: bool=False, enable_cot: bool=False,
                          enable_fewshot: bool=False, model_versions: List[str]=[],
-                         ask_about: Literal['answer', 'graph', 'query_type', 'step1', 'given_info', 'reasoning', 'arithmetic']='answer',
+                         given_cot_until_step: int = None,
+                         ask_about: Literal['answer', 'graph', 'query_type', 'formal_form', 'given_info', 'estimand', 'estimate']='answer',
                          majority_vote: bool=False):
         """
         Args:
@@ -688,10 +696,12 @@ class Tester:
             enable_cot: if True, the function will guide the model to answer the question step by step
             enable_fewshot: if True, the function will provide the model with a few-shot example before asking the question
             model_versions: a list of model versions to be tested
-            ask_about: the type of question to be asked: 'answer', 'graph', 'query_type', 'step1', 'given_info', 'reasoning', 'arithmetic'
+            ask_about: the type of question to be asked: 'answer', 'graph', 'query_type', 'formal_form', 'given_info', 'estimand', 'estimate'
+            given_cot_until_step: = [None, 1, 2, 3, 4]
             majority_vote: if True, the function will use majority vote to determine the final answer
         Returns:
         """
+        assert given_cot_until_step in [None, 1, 2, 3, 4]
 
         # model_versions = ['gpt4', 'gpt3.5long' if enable_fewshot else 'gpt3.5',
         #                   'gpt3.043', 'gpt3.042', 'gpt3.041', 'gpt3.04',
@@ -740,7 +750,7 @@ You are an expert in causal inference. The following question is not a typical c
             # == make file name ==
             cot_suffix = 'cot' if enable_cot else ''
             if cot_suffix:
-                cot_suffix += str(guide_cot_until_step) if guide_cot_until_step is not None else ''
+                cot_suffix += str(given_cot_until_step) if given_cot_until_step is not None else ''
             fewshot_suffix = '_10shot' if enable_fewshot else ''
             para_suffix = f'_pa{para_i}' if para_i else ''
             majority_vote_suffix = '_majority' if majority_vote else ''
@@ -754,7 +764,7 @@ You are an expert in causal inference. The following question is not a typical c
 
             # --- Create LLM Text interface taking charge of template/prompt composer/response processor ---
             text_interface = TextInterfaceForLLMs(write_out_file, ask_about=ask_about, enable_fewshot=enable_fewshot,
-                                                  enable_cot=enable_cot)
+                                                  enable_cot=enable_cot, given_cot_until_step=given_cot_until_step)
             chat = Chatbot(model_version=model_version, system_prompt=system_prompt, max_tokens=max_tokens)
             get_pred = lambda i: chat.ask(i)
             if enable_cot:
