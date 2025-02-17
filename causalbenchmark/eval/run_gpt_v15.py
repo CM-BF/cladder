@@ -332,7 +332,7 @@ class TextInterfaceForLLMs:
         from efficiency.function import flatten_list
         example_ids = flatten_list(self.fewshot_examples.values())
         id2datum = {i['question_id']: i for i in data if i['question_id'] in example_ids}
-        ask_about_step = QAComposer.known_steps.index(self.ask_about)
+        ask_about_step = QAComposer.known_steps.index(self.ask_about) if self.ask_about != 'answer' else len(QAComposer.known_steps)
         self.id2fewshotprompt = {id: QAComposer(self).compose_qa_pair(datum, self.enable_cot, guide_cot_until_step=ask_about_step) for id, datum in id2datum.items()}
 
     def _compose_fewshot_prefix(self, datum):
@@ -364,10 +364,10 @@ class TextInterfaceForLLMs:
             if self.enable_fewshot:
                 prompt = f"{self._compose_fewshot_prefix(datum)}{prompt}" # Concat few-shot examples BEFORE the prompt
             if self.given_cot_until_step:
-                ask_about_step = QAComposer.known_steps.index(self.ask_about)
-                if ask_about_step < self.given_cot_until_step:
+                ask_about_step = QAComposer.known_steps.index(self.ask_about) if self.ask_about != 'answer' else len(QAComposer.known_steps)
+                if ask_about_step <= self.given_cot_until_step:
                     self.given_cot_until_step = ask_about_step
-                    warnings.warn(f'ask_about_step is {ask_about_step} < given_cot_until_step {self.given_cot_until_step}.')
+                    warnings.warn(f'ask_about_step is {ask_about_step} <= given_cot_until_step {self.given_cot_until_step}.')
                 cot_guide = QAComposer(self).compose_qa_pair(datum, self.enable_cot, guide_cot_until_step=self.given_cot_until_step)
                 prompt = f"{prompt}{cot_guide}" # Concat given COT guidance AFTER the prompt
 
@@ -674,7 +674,7 @@ class Tester:
 
     def cot(self, query: Any, chat: Any, max_tokens: int, cot_final: str):
         datum = {}
-        queries = [query, cot_final]
+        queries = [query, cot_final]# % (query['question'])]
         for query_i, query in enumerate(queries):
             response = chat.ask(
                 query,
@@ -701,7 +701,7 @@ class Tester:
             majority_vote: if True, the function will use majority vote to determine the final answer
         Returns:
         """
-        assert given_cot_until_step in [None, 1, 2, 3, 4]
+        assert given_cot_until_step in [None, 1, 2, 3, 4, 5, 6]
 
         # model_versions = ['gpt4', 'gpt3.5long' if enable_fewshot else 'gpt3.5',
         #                   'gpt3.043', 'gpt3.042', 'gpt3.041', 'gpt3.04',

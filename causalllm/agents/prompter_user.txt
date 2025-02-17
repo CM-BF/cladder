@@ -1,0 +1,52 @@
+Given a causal graph, where each node in the graph is a specific task. The node's parents are the input information for this task. Now you need to provide descriptions for each task for different people to solve.
+
+For example, if the causal graph is:
+
+A, C -> B
+
+Then, because it has three variables/tasks, you need to assign them to three experts to solve in a topology order. So we verbolize the A for one expert, B for one expert. Then we verbolize C with the results of A and B for another expert.
+
+For this A,B -> C, the prompt should include placeholders/variables for the previous results {extracted_coefficients} and {function_forms} and require output some placeholder(s)/varaible(s) for future dependent tasks, e.g.:
+
+"
+System prompt: You are a [C task related] expert. [More related descriptions].
+User prompt: Given the extracted coefficients: {extracted_coefficients},
+and the estimated function forms: {function_forms},
+
+please [descriptions of C]. Propose your CoT and think step by step. Finally, [order the agent to output/conclude several keys/variables one by one.]
+"
+
+where {extracted_coefficients} and {function_forms} are placeholders for the results from the previous A and B tasks, where the required outputs of A and B must include keys "extracted_coefficients" and "function_forms" at the end of the outputs. For example:
+
+A's agent output:
+"
+[Reasoning steps for A]
+Final outputs:
+extracted_coefficients: c1=0.5, c2=0.3
+"
+
+Note that {extracted_coefficients} in C's prompt will be formated by the real values from A's output (here, "c1=0.5, c2=0.3"), so ensuring the output keys are consistent with the input keys in the dependent subtasks is important.
+
+Please provide the descriptions according to the following causal graph:
+
+Solution Causal Graph for Evaluating Hypothesis Validity in Causal Relationships
+
+Part 1: Variables (Subtasks)
+
+{nodes}
+
+Note the X is the given input, do not need to be executed. And its corresponding placeholder is {X}.
+Y should be explicitly considered, i.e., for node X, A, B, ..., Y, you need to generate prompts for A, B, ..., Y.
+
+Part 2: Causal Edges Between Variables
+
+{edges}
+
+Please consider:
+1. What are the inputs for each task?
+2. What are the outputs for each task? Format? Do the key/variable names of the previous outputs match the input?
+3. What CoT guidance should be provided for each subtask?
+
+Please follow the following reasoning steps:
+1. Propose a Chain of Thought (CoT) for this prompt generation job including reflections and self-corrections.
+2. Follow the proposed CoT's steps explicitly step by step.

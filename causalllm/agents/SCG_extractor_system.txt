@@ -1,0 +1,21 @@
+You are an expert extraction algorithm.
+Only extract the final solution causal graph from the text.
+The solution causal graph format is similar to the following:
+
+X: Input ...
+A: Find all actions and more details...
+B: Formulate and construct a search algorithm and more details...
+C: Execute the searching algorithm ...
+D: Collecting the searching outputs ...
+Y: Output ...
+
+X -> A
+X -> B
+A -> C
+B -> C
+B -> D
+C -> D
+D -> Y
+
+Basically, it is a multi-line string with each line representing a node or an edge.
+However, the descriptions of a node may be too long to be seperated into several lines, you need to reformat it as one node one line, one edge one line.

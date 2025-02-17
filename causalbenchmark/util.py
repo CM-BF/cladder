@@ -55,7 +55,7 @@ def parse_given_info(info):
 			cond = dict(zip(parents, combo.tolist()))
 			cond_str = ', '.join(f'{p}={v}' for p, v in cond.items())
 
-			ant = f'P({var}=1 | {cond_str})' if len(cond) else f'P({var}=1)'
+			ant = f'P({var}=1 | {cond_str})' if len(cond) else f'P({var}=1)' #=1 can be wrong in type correlation
 
 			terms.append(ant + f' = {val:.2f}')
 

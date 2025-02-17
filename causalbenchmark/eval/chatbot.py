@@ -8,7 +8,7 @@ import json
 
 class Chatbot(object):
     def __init__(self, model_version="gpt-3.5-turbo", system_prompt="You are a helpful assistant.",
-                 max_tokens=100):
+                 max_tokens=1000):
         self.client = OpenAI(api_key=os.environ['OPENAI_API_KEY'], organization=os.environ['OPENAI_ORG_ID'])
         self._history = [{"role": "user" if "o1" in model_version else "system", "content": system_prompt}]  # To track the history of the conversation
         self.model_version = model_version

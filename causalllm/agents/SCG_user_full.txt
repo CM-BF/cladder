@@ -1,0 +1,100 @@
+## Solution causal graph (SCG) format
+
+```
+X: Input (some descriptions)
+A: Find all actions and more details... (3+ sentences)
+B: Formulate and construct a search algorithm and more details... (3+ sentences)
+C: Execute the searching algorithm ... (3+ sentences)
+D: Collecting the searching outputs ... (3+ sentences)
+Y: Output (some descriptions)
+
+X -> A
+X -> B
+A -> C
+B -> C
+B -> D
+C -> D
+D -> Y
+```
+Each node should have descriptions with 4+ sentences: Name of the subtask; What the subtask is about? What tools/theorems/methods/rules to be used? What is(are) the output(s) of the subtask?
+One line one node, one line one edge.
+
+This shows the oversimplified solution causal graph. The real solution causal graph should include more details, more complex and dedicated connections.
+The solution causal graph includes both node descriptions and edges. Everytime outputting a solution causal graph, you need to output both of them.
+More variables/subtasks names? A-Z, AA-AZ, BA-BZ, ... or using more specific names.
+
+
+## Task description
+
+Provide a solution causal graph for the following task:
+
+The task is to predict Y given X for a specific dataset.
+
+This dataset is consist of many (X, Y) pairs, i.e., input-output pairs.
+Input (X): causal relationship description + one hypothesis
+Output (Y): Whether the hypothesis mentioned in X is valid or not. (yes/no)
+
+To construct the solution causal graph, you need to consider using the samples in the dataset:
+
+Sample 1:
+Input: "Imagine a self-contained, hypothetical world with only the following conditions, and without any unmentioned factors or causal relationships: Rixq has a direct effect on zuph and xevu. Zuph has a direct effect on xevu. The overall probability of rixq is 83%. The probability of not rixq and xevu is 8%. The probability of rixq and xevu is 36%. Is the chance of xevu larger when observing rixq?"
+Output: no
+
+Sample 2:
+Input: "Imagine a self-contained, hypothetical world with only the following conditions, and without any unmentioned factors or causal relationships: Encouragement level has a direct effect on studying habit and exam score. Studying habit has a direct effect on exam score. For students who are not encouraged, the probability of high exam score is 26%. For students who are encouraged, the probability of high exam score is 72%. Will encouragement decrease the chance of high exam score?"
+Output: no
+
+Sample 3:
+Input: "Imagine a self-contained, hypothetical world with only the following conditions, and without any unmentioned factors or causal relationships: Gwet has a direct effect on cwoi and yomx. Yomx has a direct effect on xevu. Cwoi has a direct effect on xevu. The overall probability of yomx is 20%. For those who are not yomx, the probability of xevu is 86%. For those who are yomx, the probability of xevu is 25%. Is xevu more likely than not xevu overall?"
+Output: yes
+
+Sample 4:
+Input: "Imagine a self-contained, hypothetical world with only the following conditions, and without any unmentioned factors or causal relationships: Xevo has a direct effect on tijv and gyzp. Tijv has a direct effect on gyzp. Method 1: We look at how xevo correlates with gyzp case by case according to tijv. Method 2: We look directly at how xevo correlates with gyzp in general. To understand how xevo affects gyzp, is it more correct to use the Method 1 than Method 2?"
+Output: no
+
+Sample 5:
+Input: "Imagine a self-contained, hypothetical world with only the following conditions, and without any unmentioned factors or causal relationships: Having a sister has a direct effect on tar deposit. Tar deposit has a direct effect on lung cancer. For people who do not have a sister, the probability of lung cancer is 30%. For people who have a sister, the probability of lung cancer is 43%. For people who have a sister, would it be more likely to see lung cancer if the person did not have a sister?"
+Output: no
+
+Sample 6:
+Input: "Imagine a self-contained, hypothetical world with only the following conditions, and without any unmentioned factors or causal relationships: Xevo has a direct effect on tijv. Tijv has a direct effect on gyzp. We know that xevo causes not tijv, and we know that tijv causes not gyzp. Would an individual is gyzp if not xevo instead of xevo?"
+Output: no
+
+Sample 7:
+Input: "Imagine a self-contained, hypothetical world with only the following conditions, and without any unmentioned factors or causal relationships: Smoking has a direct effect on effort and college admission. Effort has a direct effect on college admission. For nonsmokers and are lazy, the probability of college admission is 55%. For nonsmokers and are hard-working, the probability of college admission is 24%. For smokers and are lazy, the probability of college admission is 81%. For smokers and are hard-working, the probability of college admission is 59%. For nonsmokers, the probability of being hard-working is 2%. For smokers, the probability of being hard-working is 59%. If we disregard the mediation effect through effort, would smoking positively affect college admission?"
+Output: yes
+
+Sample 8:
+Input: "Imagine a self-contained, hypothetical world with only the following conditions, and without any unmentioned factors or causal relationships: Zuph has a direct effect on jyka and glimx. Jyka has a direct effect on glimx. For those who are not zuph and are not jyka, the probability of glimx is 100%. For those who are not zuph and are jyka, the probability of glimx is 51%. For those who are zuph and are not jyka, the probability of glimx is 28%. For those who are zuph and are jyka, the probability of glimx is 60%. For those who are not zuph, the probability of jyka is 93%. For those who are zuph, the probability of jyka is 40%. Does zuph negatively affect glimx through jyka?"
+Output: no
+
+Sample 9:
+Input: "Imagine a self-contained, hypothetical world with only the following conditions, and without any unmentioned factors or causal relationships: Drinking coffee has a direct effect on hospitalization status. Broken bones has a direct effect on hospitalization status. The overall probability of drinking coffee is 41%. For people who do not drink coffee and non-hospitalized individuals, the probability of broken bones is 93%. For people who do not drink coffee and hospitalized individuals, the probability of broken bones is 69%. For people who drink coffee and non-hospitalized individuals, the probability of broken bones is 93%. For people who drink coffee and hospitalized individuals, the probability of broken bones is 75%. If we look at hospitalized individuals, does the chance of broken bones increase when drinking coffee?"
+Output: yes
+
+Sample 10:
+Input: "Imagine a self-contained, hypothetical world with only the following conditions, and without any unmentioned factors or causal relationships: Talent has a direct effect on elite institution admission status. Effort has a direct effect on elite institution admission status. For students accepted to elite institutions, the correlation between talent and being hard-working is -0.33. If we look at students accepted to elite institutions, does it mean that talent affects being hard-working?"
+Output: no
+
+## Command
+
+Please propose CoT steps and follow these steps by outputting your thoughts. Output the solution causal graph for this task at the end as a conclusion.
+
+## Mandatory steps/rules
+
+There are several important rules you must follow:
+1. Obey the following rules explicitly. Output for each rule is mandatory: What is the rule? Why the rule is satisfied/not satisfied? If satisfied, how? If not satisfied, how to avoid it? That means your must output rules one by one and check them using 3+ sentences for each rule.
+2. Solve random two samples first by providing the detailed proofs including all the math calculations (each one should include at least 10 reasoning steps; 1000+ tokens). Then you will know what extra information you need to solve the task, so that you can construct the solution causal graph better.
+3. The solution causal graph should be general not specific to an instance (sample). Therefore, the solution causal graph can be used to solve all samples in the dataset.
+4. At the end of your response, you must output the solution causal graph strictly following the solution causal graph format, including node descriptions and edges.
+5. List the following relevant information when constructing the solution causal graph:
+    - We can extract an abstraction of the problem. (Use A, B, C, D to represent entities to eliminate potential bias by the names)
+    - Recall relevant theorems.
+    - Standard modeling and formulation.
+    - Standard olution pipeline.
+    - Categorized discussion.
+    - Proof and validation.
+6. After making the initial solution causal graph, think about whether some subtasks can be further decomposed into smaller subtasks. If so, decompose them and update the solution causal graph by revisiting all the rules and reasoning steps again.
+7. Does the subtask have enough information to be solved?/Are the in-edge of the subtask enough?
+8. Does the subtask have enough information to solve the next subtask?/Are the out-edge of the subtask enough?
+9. Does the subtask have redundant information (in-edges)? If so, please refrain from including redundant information and only use the necessary information. For example, after extracting the abstraction of the problem, the original descriptions should be omitted, avoiding spurious correlations/entity biases.
