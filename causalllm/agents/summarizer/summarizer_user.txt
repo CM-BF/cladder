@@ -1,0 +1,5 @@
+There are outputs from multiple agents.
+
+{outputs}
+
+Please summarize the consensus of these outputs in terms of {keys}. It is valid if more than half of the outputs agree.

@@ -1,0 +1,7 @@
+This task aims to generate a causal graph representing the reasoning process of one type of problems.
+In the causal graph, each node represents a (mediate) well-defined entity **not a process or a function**.
+Just like general structural causal models, the edges are responsible for the process or function to generate the descendent.
+
+There are some samples of the type of the problem.
+
+{samples}

@@ -1,0 +1,11 @@
+Sample 1:
+Input: "Imagine a self-contained, hypothetical world with only the following conditions, and without any unmentioned factors or causal relationships: Rixq has a direct effect on zuph and xevu. Zuph has a direct effect on xevu. The overall probability of rixq is 83%. The probability of not rixq and xevu is 8%. The probability of rixq and xevu is 36%. Is the chance of xevu larger when observing rixq?"
+Output: no
+
+Sample 2:
+Input: "Imagine a self-contained, hypothetical world with only the following conditions, and without any unmentioned factors or causal relationships: Encouragement level has a direct effect on studying habit and exam score. Studying habit has a direct effect on exam score. For students who are not encouraged, the probability of high exam score is 26%. For students who are encouraged, the probability of high exam score is 72%. Will encouragement decrease the chance of high exam score?"
+Output: no
+
+Sample 3:
+Input: "Imagine a self-contained, hypothetical world with only the following conditions, and without any unmentioned factors or causal relationships: Gwet has a direct effect on cwoi and yomx. Yomx has a direct effect on xevu. Cwoi has a direct effect on xevu. The overall probability of yomx is 20%. For those who are not yomx, the probability of xevu is 86%. For those who are yomx, the probability of xevu is 25%. Is xevu more likely than not xevu overall?"
+Output: yes

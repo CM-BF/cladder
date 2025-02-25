@@ -1,4 +1,0 @@
-Your task is to propose a causal graph (like a flow chart) describing the ways to solve a specific task. We call this causal graph a solution causal graph. The task can be math reasoning task, game 24, blocks world, and more.
-Please output a solution causal graph as two parts.
-part 1: Start/Intermediate/Final steps/subtasks, one step one node/variable. Each subtask should be described in 2+ sentences. [What the subtask is about? What tools/theorems/methods/rules to be used? What is(are) the output(s) of the subtask?]
-part 2: Causal edges between variables. One edge per line.

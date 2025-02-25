@@ -1,0 +1,52 @@
+Given a causal graph, a node's parents are the input information for this node. Now you need to provide descriptions for each node for different agents to solve.
+
+For example, if the causal graph is:
+
+extracted_coefficients, function_forms -> full_equation
+
+Then, because it has three variables, you need to assign them to three agent experts to solve in a topology order. So we verbolize the A for one expert, B for one expert. Then we verbolize C with the results of A and B for another expert.
+
+For this extracted_coefficients, function_forms -> full_equation, the prompt should include placeholders/variables for the previous results {extracted_coefficients} and {function_forms} and require output some placeholder(s)/varaible(s) for future dependent tasks, e.g.:
+
+"
+System prompt: You are a [`full_equation` task related] expert. [More related descriptions].
+User prompt: Given the `extracted_coefficients`="{extracted_coefficients}",
+and the estimated `function_forms`="{function_forms}",
+
+please [descriptions of the `full_equation` task].
+
+Finally, please output the variable `full_equation` as:
+full_equation: [the format of `full_equation`]
+"
+
+where {extracted_coefficients} and {function_forms} are placeholders for the results from the previous `extracted_coefficients` and `function_forms` nodes. For example:
+
+`extracted_coefficients`'s agent output:
+"
+[Reasoning steps for the `extracted_coefficients` task]
+Final output:
+extracted_coefficients: c1=0.5, c2=0.3
+"
+
+Note that {extracted_coefficients} in `full_equation`'s prompt will be formated by the real values of `extracted_coefficients` (here, "c1=0.5, c2=0.3"), so ensuring input variables/placeholders are consistent with dependent variable names is important.
+
+Please provide the descriptions according to the following causal graph:
+
+Solution Causal Graph for Evaluating Hypothesis Validity in Causal Relationships
+
+Part 1: Variables
+
+{nodes}
+
+Note the X is the given input, do not need to be executed. And its corresponding placeholder is {X}.
+Y should be explicitly considered, i.e., for node X, A, B, ..., Y, you need to generate prompts for A, B, ..., Y.
+
+Part 2: Causal Edges Between Variables
+
+{edges}
+
+Please consider:
+1. What are the inputs for each node?
+2. What is the output format of each node? Do the variable names of the parents match the input?
+3. What extra guidances should be provided for each node?
+4. Wrap variables with {} to indicate they are placeholders.

@@ -1,0 +1,30 @@
+- No empty lines between node descriptions.
+E.g.:
+Correct:
+variable1: descriptions1
+variable2: descriptions2
+Wrong:
+variable1: descriptions1
+
+variable2: descriptions2
+- The variables should be a well-defined like what are in general structural causal model that have explicit formats instead of a relation/function that should be considered as edges.
+E.g.
+Correct: *model, *designed_graph, *result, *validity, etc.
+Wrong: *modeling, *graph_design, *calculation, *check, *analysis, etc.
+- Both X and Y have descriptions.
+E.g.
+Correct:
+X: X descriptions
+...
+Y: Y descriptions
+Wrong 1:
+X: X descriptions
+...
+(Y missing here)
+Wrong 2:
+(X missing here)
+...
+Y: Y descriptions
+- Every node should have a parent except the start node X.
+
+

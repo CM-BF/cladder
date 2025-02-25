@@ -1,0 +1,52 @@
+## Solution causal graph (SCG) format example
+
+X: (one sample from a dataset)
+available_actions: more details including the description of `available_actions`; what tools/theorems/methods/rules are needed? The format of the output, e.g., a list of available actions. (in one line, no line breakers)
+formulated_problem: more details...
+searching_algorithm_formulation: more details, e.g., design a searching algorithm using the `available_actions` and `problem_formulation`...
+searching_algorithm_code: more details, e.g., using python to implement...
+search_result: more details, e.g., code execution environments; format of `search_result` should be a python code block; outputs for errors.
+Y: (brief descriptions)
+
+X -> available_actions
+X -> formulated_problem
+available_actions -> searching_algorithm_formulation
+formulated_problem -> searching_algorithm_formulation
+searching_algorithm_formulation -> searching_algorithm_code
+searching_algorithm_code -> search_result
+search_result -> Y
+
+Please don't bias towards the variables in the example, the task you are working on is very different.
+
+You must list both node X (input) and Y (output), and their descriptions can be brief. Other nodes should have descriptions with 2+ sentences: The description of the variable. How to predict this variable, including what tools/theorems/methods/rules are needed? The format of the variable.
+One line one node including all the descriptions, one line one edge. No matter how long the descriptions are, the format should be strictly followed. No extra line breakers.
+
+This shows the oversimplified solution causal graph. The real solution causal graph should include more details, more complex and dedicated connections.
+The solution causal graph includes both node descriptions and edges. Everytime outputting a solution causal graph, you need to output both of them.
+
+
+## Task description
+
+Provide a solution causal graph for the following task:
+
+The task is to predict Y given X for a specific dataset.
+
+This dataset is consist of many (X, Y) pairs, i.e., input-output pairs.
+Input (X): causal relationship description + one hypothesis
+Output (Y): Whether the hypothesis mentioned in X is valid or not. (yes/no)
+
+To construct the solution causal graph, you need to consider using the samples in the dataset:
+
+{samples}
+
+## Command
+
+Please output the solution causal graph for this task.
+
+## Guidance
+
+There are several important points you need to consider:
+- The solution causal graph should be general not specific to an instance (sample). Therefore, the solution causal graph can be used to solve all samples in the dataset.
+- At the end of your response, you must output the solution causal graph strictly following the solution causal graph format, including node descriptions and edges.
+- One line one node, one line one edge. No matter how long the descriptions are.
+- The variable name should be an attribute/entities that have explicit formats instead of a process/procedure/function. Using `model`, `designed_graph`, `result`, `validity`, etc. Avoid `modeling`, `graph_design`, `calculation`, `check`, `analysis`, etc.

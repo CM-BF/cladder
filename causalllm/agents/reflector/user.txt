@@ -1,0 +1,11 @@
+Given the following scenario:
+
+## Input components:
+{input_components}
+
+## Incorrect Output:
+{wrong_output}
+
+Please analyze the above and answer:
+1. Which input component should take the major responsibility for the incorrect output?
+2. Why did this part cause the error? Provide detailed feedback on what went wrong and how it could be improved. Include some examples.

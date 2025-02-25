@@ -1,0 +1,8 @@
+Given the generated content:
+
+{solution}
+
+Does it satisfy:
+{requirements}
+
+If all are satisfied, reply yes. Otherwise, reply no, and only output the unsatisfied part(s) with reasons.

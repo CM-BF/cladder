@@ -222,15 +222,16 @@ class TextInterfaceForLLMs:
 
         return data
 
-    def response_processor(self, **kwargs):
-        def convert_to_norm(value):
-            invalid = -1
-            value = str(value).lower().strip().strip('"')
+    def convert_to_norm(self, value):
+        invalid = -1
+        value = str(value).lower().strip().strip('"')
 
-            for prefix, norm in self.prefix2norm.items():
-                if value.startswith(prefix.lower()):
-                    return norm
-            return invalid
+        for prefix, norm in self.prefix2norm.items():
+            if value.startswith(prefix.lower()):
+                return norm
+        return invalid
+
+    def response_processor(self, **kwargs):
 
         from efficiency.log import fread
         data = fread(self.save_path)
@@ -238,7 +239,7 @@ class TextInterfaceForLLMs:
             self.data_out = data
 
             for datum in self.data_out:
-                datum['pred_norm'] = convert_to_norm(datum['pred'])
+                datum['pred_norm'] = self.convert_to_norm(datum['pred'])
                 datum.update(kwargs)
             self.save()
 

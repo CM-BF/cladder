@@ -47,8 +47,8 @@ def draw_graph(G, node_labels):
     nx.draw(G, pos, with_labels=True, node_color='lightblue', edge_color='gray', node_size=2000, font_size=12)
 
     # Draw node labels separately to avoid overlapping
-    labels = {node: f"\n{desc}" for node, desc in node_labels.items()}
-    nx.draw_networkx_labels(G, pos, labels=labels, font_size=10, verticalalignment="center")
+    # labels = {node: f"\n{desc}" for node, desc in node_labels.items()}
+    # nx.draw_networkx_labels(G, pos, labels=labels, font_size=10, verticalalignment="center")
 
     plt.show()
 
