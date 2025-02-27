@@ -1,0 +1,11 @@
+Sample 1:
+Input: "A spacecraft must complete three tasks in order: satellite deployment, asteroid sample collection, and return to Earth. The asteroid orbit window for sample collection opens after satellite deployment and lasts 48 hours. The spacecraft consumes 20% of its fuel for satellite deployment and 50% for asteroid sample collection. It must retain at least 30% fuel to return safely to Earth. Refueling is not possible during the mission. Given the fuel constraints, can the mission complete all three tasks successfully?"
+Output: no
+
+Sample 2:
+Input: "A lunar base construction requires three components: habitat modules, power systems, and communication arrays. Power systems must be operational before the habitat modules can be activated. Communication arrays require 12 hours to set up but can run concurrently with habitat module activation. The entire mission window is 36 hours. Habitat module activation takes 18 hours and power systems setup takes 10 hours. Can the construction be completed within the available mission window?"
+Output: yes
+
+Sample 3:
+Input: "A Mars rover has three objectives: rock analysis, terrain mapping, and weather monitoring. Terrain mapping must be completed before rock analysis. Weather monitoring can occur at any time but consumes 25% of the rover’s battery, which cannot be recharged. Terrain mapping and rock analysis each consume 40% of the battery. Does the rover have enough battery capacity to complete all objectives?"
+Output: no

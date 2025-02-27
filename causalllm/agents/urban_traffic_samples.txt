@@ -1,0 +1,11 @@
+Sample 1:
+Input: "A city grid has three main roads: A, B, and C. Road A connects the northern and southern parts of the city but has a 30% slowdown due to construction. Road B connects the eastern and western parts of the city and is free-flowing. Road C connects the southern and eastern parts but has a toll that delays traffic by 10 minutes. The fastest path from the northern to eastern part must take less than 40 minutes. Traveling on each road without delays takes 15 minutes. Is it possible to travel from the northern to eastern part of the city within the time limit using these roads?"
+Output: yes
+
+Sample 2:
+Input: "A traffic control system can adjust signal timings at three major intersections: X, Y, and Z. Intersection X must always prioritize east-west traffic during peak hours. Intersection Y can allocate up to 60% of its signal time to north-south traffic. Intersection Z requires at least 40% signal time for pedestrian crossing. Peak hour congestion reduces average vehicle speed by 50%. Can the traffic control system ensure a continuous green wave for north-south traffic across all three intersections?"
+Output: no
+
+Sample 3:
+Input: "A public transit network introduces three express bus routes: R1, R2, and R3. R1 connects downtown to the airport in 25 minutes. R2 connects downtown to the business district in 15 minutes. R3 connects the business district to the airport in 20 minutes. Transfers between routes take an additional 5 minutes. The goal is to travel from downtown to the airport in under 40 minutes, including transfers. Can the traveler achieve this time goal by combining any two routes?"
+Output: yes

@@ -1,5 +1,6 @@
 ## Solution causal graph (SCG) format example
 
+Nodes:
 X: (one sample from a dataset)
 available_actions: more details including the description of `available_actions`; what tools/theorems/methods/rules are needed? The format of the output, e.g., a list of available actions. (in one line, no line breakers)
 formulated_problem: more details...
@@ -8,6 +9,7 @@ searching_algorithm_code: more details, e.g., using python to implement...
 search_result: more details, e.g., code execution environments; format of `search_result` should be a python code block; outputs for errors.
 Y: (brief descriptions)
 
+Edges:
 X -> available_actions
 X -> formulated_problem
 available_actions -> searching_algorithm_formulation
@@ -50,3 +52,4 @@ There are several important points you need to consider:
 - At the end of your response, you must output the solution causal graph strictly following the solution causal graph format, including node descriptions and edges.
 - One line one node, one line one edge. No matter how long the descriptions are.
 - The variable name should be an attribute/entities that have explicit formats instead of a process/procedure/function. Using `model`, `designed_graph`, `result`, `validity`, etc. Avoid `modeling`, `graph_design`, `calculation`, `check`, `analysis`, etc.
+- Since the causal graph will be executed by LLM agents, when creating variables, consider limiting the information preserved (like building information bottlenecks) to eliminated information that could cause biases or is out of the agent training distributions. One possible way is to anonymize entity names or use abstract terms instead of specific domain knowledge.

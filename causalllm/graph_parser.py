@@ -62,7 +62,7 @@ def visualize_langgraph(graph, path):
     plt.imshow(img)
     plt.axis("off")  # Hide axes
     plt.title("LangGraph Visualization")
-    plt.savefig(path / 'langgraph.png')
+    plt.savefig(path)
     plt.show()
 
 

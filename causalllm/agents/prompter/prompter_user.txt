@@ -39,7 +39,7 @@ Part 1: Variables
 {nodes}
 
 Note the X is the given input, do not need to be executed. And its corresponding placeholder is {X}.
-Y should be explicitly considered, i.e., for node X, A, B, ..., Y, you need to generate prompts for A, B, ..., Y.
+Y should be explicitly considered, i.e., for node X, A, B, ..., Y, you need to generate prompts for A, B, ..., Y. Again, no prompts for X, since X is given.
 
 Part 2: Causal Edges Between Variables
 

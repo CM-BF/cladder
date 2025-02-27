@@ -2,3 +2,5 @@ Your task is to propose a causal graph (like a flow chart) describing the ways t
 Please output a solution causal graph as two parts.
 part 1: Start/Intermediate/Final entities/variables, one variable one node. Each variable should be described in 2+ sentences. [What is the name of the variable? The description of the variable. How to predict this variable, including what tools/theorems/methods/rules are needed? The format of the variable.]
 part 2: Causal edges between variables by considering the dependencies among variables. One edge per line.
+
+Since the causal graph will be executed by LLM agents, when creating variables, consider building an information bottleneck (limiting the information preserved) to eliminated information that could cause biases or is out of the agent training distributions. One possible way is to anonymize entity names or use abstract terms instead of specific domain knowledge.

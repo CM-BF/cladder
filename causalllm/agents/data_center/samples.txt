@@ -1,0 +1,11 @@
+Sample 1:
+Input: "A data center has three processing clusters: Alpha, Beta, and Gamma. Alpha can process up to 500 GB of data per hour but requires a 15-minute maintenance period after 2 hours of operation. Beta can process 300 GB per hour continuously but has a 10% chance of crashing every hour, causing a 1-hour recovery time. Gamma can process 400 GB per hour but must share bandwidth with Beta, reducing both speeds by 25% if run simultaneously. The total data processing requirement is 1,200 GB within 3 hours. Can the data center complete the processing on time without risking crashes?"
+Output: no
+
+Sample 2:
+Input: "A cloud service must allocate GPU resources to three tasks: T1, T2, and T3. T1 requires continuous GPU access for 90 minutes. T2 requires 60 minutes of GPU time but can be interrupted once without losing progress. T3 needs 30 minutes of GPU time but must start after T1 finishes. The available GPU can run only one task at a time and is available for 3 hours total. Can all tasks be completed within the available time?"
+Output: yes
+
+Sample 3:
+Input: "A machine learning pipeline involves three stages: data preprocessing, model training, and model evaluation. Preprocessing takes 2 hours and must be completed before training. Training takes 5 hours but can be parallelized across two machines, reducing the time to 3 hours. Evaluation takes 1 hour and can only begin after training. The total project deadline is 6 hours. Does parallelizing the training stage allow meeting the deadline?"
+Output: no

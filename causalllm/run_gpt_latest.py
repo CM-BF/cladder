@@ -31,6 +31,8 @@ from langgraph_builder import models
 
 
 
+
+
 class SCGState(TypedDict):
     scg_messages: List[AnyMessage]
     scg_window: int
@@ -47,7 +49,8 @@ def scg_design(states: SCGState, config: RunnableConfig):
     if len(states['last_node']) == 0:
         messages = [
             SystemMessage(Path('agents/SCG/SCG_system.txt').read_text()),
-            HumanMessage(partial_replace(Path('agents/SCG/SCG_user.txt').read_text(), {'samples': Path('agents/samples.txt').read_text()})),
+            HumanMessage(partial_replace(Path('agents/SCG/SCG_user.txt').read_text(), {'samples': Path(
+                'agents/samples.txt').read_text()})),
         ]
     elif states['last_node'][-1] == 'scg_design':
         # self-loop feedback
@@ -137,7 +140,7 @@ def prompter_generation(states: SCGState, config: RunnableConfig):
     elif states['last_node'][-1] == 'prompter_generation':
         # self-loop feedback
         prompter_messages = states['prompter_messages']
-        prompter_messages.append(HumanMessage(states['prompter_results'][-1]['feedback'] + '\n\n Please try again according to the feedback. Note that please output all agents prompts all over again.'))
+        prompter_messages.append(HumanMessage(states['prompter_results'][-1]['feedback'] + '\n\n Please try again according to the feedback. Note that please output all agents prompts all over again. When I say you do not follow the causal structure, that means your generated prompts are wrong (e.g., you should not have an agent to predict X, it is given). The causal structure is extracted from your generated prompts, you should modify your generated prompts to correct it. Explicitly generating causal structure to cheat is prohibited.'))
     elif states['last_node'][-1] == 'execution_trials':
         prompter_messages = states['prompter_messages']
         prompter_messages.append(HumanMessage('Here are some feedbacks by executing the SCG over several samples: \n\n' + states['execution_results'][-1]['feedback'] + '\n\n Please try again according to the feedback. Note that please output all agents prompts all over again.'))
@@ -193,7 +196,7 @@ def scg_execution_trial(states: SCGState, config: RunnableConfig):
     builder.add_edge("Y", END)
 
     scg = builder.compile()
-    visualize_langgraph(scg, ROOT_PATH / 'outputs')
+    visualize_langgraph(scg, Path(config['configurable']['exp_folder']) / f'langgraph{len(states["execution_results"])}.png')
 
     text_interface = config['configurable']['text_interface']
     write_out_file = config['configurable']['write_out_file']
@@ -288,7 +291,7 @@ def post_trial_route(states: SCGState, config: RunnableConfig):
 def scg_full_execution(states: SCGState, config: RunnableConfig):
     best_execution_result = min(states['execution_results'], key=lambda x: x['num_error'])
     scg = best_execution_result['scg']
-    visualize_langgraph(scg, ROOT_PATH / 'outputs')
+    visualize_langgraph(scg, Path(config['configurable']['exp_folder']) / f'langgraph_best.png')
 
     text_interface = config['configurable']['text_interface']
     write_out_file = config['configurable']['write_out_file']
@@ -402,9 +405,15 @@ You are an expert in causal inference. The following question is not a typical c
             majority_vote_suffix = '_majority' if majority_vote else ''
             assert majority_vote and ask_about == 'query_type' or not majority_vote
 
+            from datetime import datetime
+            START_TIME = datetime.now().strftime("%Y%m%d%H%M%S")
+
+            exp_folder = f'{ROOT_PATH}/outputs/{model_version}{cot_suffix}' \
+                f'{fewshot_suffix}{ask_about_suffix}{missing_step_suffix}{para_suffix}{majority_vote_suffix}{START_TIME}'
+            Path(exp_folder).mkdir(parents=True, exist_ok=True)
+
             write_out_file = \
-                f'{ROOT_PATH}/outputs/My{model_version}{cot_suffix}' \
-                f'{fewshot_suffix}{ask_about_suffix}{missing_step_suffix}{para_suffix}{majority_vote_suffix}.csv'
+                f'{exp_folder}/output.csv'
             write_out_files.append(write_out_file)
             # == make file name end ==
 
@@ -449,10 +458,11 @@ You are an expert in causal inference. The following question is not a typical c
                     meta_graph_builder.add_edge('full_execution', END)
 
                     meta_graph = meta_graph_builder.compile()
-                    visualize_langgraph(meta_graph, ROOT_PATH / 'outputs')
+                    visualize_langgraph(meta_graph, Path(exp_folder) / f'langgraph_controller.png')
 
                     meta_graph.invoke({'scg_messages': [], 'scg_window': 2, 'scg_design_results': [], 'prompter_window': 2, 'prompter_messages': [], 'prompter_results': [], 'execution_results': [], 'last_node': []},
                                       {'configurable': {'model': 'o3-mini',
+                                                        'exp_folder': exp_folder,
                                                         'write_out_file': write_out_file,
                                                         'text_interface': text_interface,
                                                         'data_10': data_10,

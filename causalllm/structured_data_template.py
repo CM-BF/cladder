@@ -23,3 +23,6 @@ class Verifier(BaseModel):
 class Reflector(BaseModel):
     input_component: str = Field(None, enum=['SCG design', 'Prompt generation'], description="The name of the input component that takes the major responsibility for the error.")
     feedback: Optional[str] = Field(None, description="The feedback message about how and why the input component is responsible for the error and how to fix it. Include some concrete examples to show the critical errors.")
+
+class BinaryClassifier(BaseModel):
+    answer: str = Field(None, enum=['yes', 'no'], description="The final answer for the binary classification task.")
