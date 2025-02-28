@@ -64,6 +64,7 @@ def visualize_langgraph(graph, path):
     plt.title("LangGraph Visualization")
     plt.savefig(path)
     plt.show()
+    plt.close()
 
 
 

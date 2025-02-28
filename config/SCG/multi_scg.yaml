@@ -5,6 +5,6 @@ ask_about: answer
 given_cot_until_step: null
 model_versions:
     - gpt-4o-mini
-#    - gpt-3.5-turbo
-#    - gpt-4o
-# COT + ask query type not supported
+k_graph: 2
+max_scg_trials: 2
+max_num_executions: 5

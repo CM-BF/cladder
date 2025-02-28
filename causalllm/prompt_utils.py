@@ -174,6 +174,7 @@ class TextInterfaceForLLMs:
         from efficiency.function import flatten_list
         example_ids = flatten_list(self.fewshot_examples.values())
         id2datum = {i['question_id']: i for i in data if i['question_id'] in example_ids}
+        self.fewshot_id2datum = id2datum
         ask_about_step = QAComposer.known_steps.index(self.ask_about) if self.ask_about != 'answer' else len(QAComposer.known_steps)
         self.id2fewshotprompt = {id: QAComposer(self).compose_qa_pair(datum, self.enable_cot, guide_cot_until_step=ask_about_step) for id, datum in id2datum.items()}
 

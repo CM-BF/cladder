@@ -1,0 +1,18 @@
+Please provide the prompts of the agents according to the following causal graph:
+
+Part 1: Variables
+
+{nodes}
+
+Note the X is the given input, do not need to be executed. And its corresponding placeholder is {X}.
+Y should be explicitly considered, i.e., for node X, A, B, ..., Y, you need to generate prompts for A, B, ..., Y. Again, no prompts for X, since X is given.
+
+Part 2: Causal Edges Between Variables
+
+{edges}
+
+Please consider:
+1. What are the inputs for each node?
+2. What is the output format of each node? Do the variable names of the parents match the input?
+3. What extra guidances should be provided for each node?
+4. Wrap variables with {} to indicate they are placeholders.

@@ -30,9 +30,7 @@ extracted_coefficients: c1=0.5, c2=0.3
 
 Note that {extracted_coefficients} in `full_equation`'s prompt will be formated by the real values of `extracted_coefficients` (here, "c1=0.5, c2=0.3"), so ensuring input variables/placeholders are consistent with dependent variable names is important.
 
-Please provide the descriptions according to the following causal graph:
-
-Solution Causal Graph for Evaluating Hypothesis Validity in Causal Relationships
+Please provide the prompts of the agents according to the following causal graph:
 
 Part 1: Variables
 

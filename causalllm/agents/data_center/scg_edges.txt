@@ -1,0 +1,5 @@
+X -> extracted_entities
+X -> extracted_hypothesis
+X -> system_constraints
+extracted_entities, extracted_hypothesis, system_constraints -> logical_reasoning
+logical_reasoning -> Y

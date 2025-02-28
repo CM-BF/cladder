@@ -31,6 +31,8 @@ from causalllm.langgraph_builder import AgentState, ConfigSchema, executor, extr
 from graph_parser import visualize_langgraph
 from langgraph_builder import models
 
+import openai
+
 
 
 
@@ -40,8 +42,9 @@ class ExecState(TypedDict):
     pred: str
 
 def cot_sample_run(states: ExecState, config: RunnableConfig):
-    model = models[config["configurable"].get("model", 'gpt-4o-mini')]
+    model = models[config["configurable"].get("model", 'gpt-4o-mini')].with_retry()
     extractor_model = models['gpt-4o-mini']
+    extractor = extractor_template | extractor_model.with_structured_output(schema=BinaryClassifier).with_retry()
 
     datum = states['datum']
     query = datum['raw_prompt']
@@ -54,7 +57,6 @@ def cot_sample_run(states: ExecState, config: RunnableConfig):
         messages.append(HumanMessage(
             f"The question is: {query}\n\nPlease answer whether the hypothesis is true or not? Reply 'yes' or 'no'."))
         response = model.invoke(messages)
-        extractor = extractor_template | extractor_model.with_structured_output(schema=BinaryClassifier)
         classification = extractor.invoke({'text': response.content})
     else:
 
@@ -65,7 +67,6 @@ def cot_sample_run(states: ExecState, config: RunnableConfig):
         messages.append(
             HumanMessage("According to the above reasoning, whether the hypothesis is true or not? Reply 'yes' or 'no'."))
         final_response = model.invoke(messages)
-        extractor = extractor_template | extractor_model.with_structured_output(schema=BinaryClassifier)
         classification = extractor.invoke({'text': final_response.content})
 
     datum['pred'] = classification.answer

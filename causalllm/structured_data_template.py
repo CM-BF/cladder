@@ -20,9 +20,15 @@ class Verifier(BaseModel):
     valid: bool = Field(None, description="Whether the solution satisfies all the requirements.")
     feedback: Optional[str] = Field(None, description="The feedback message for the user if the solution does not satisfy any of the requirements.")
 
+class InputFeedback(BaseModel):
+    name: str = Field(None, enum=['SCG design', 'Prompt generation'], description="The name of the input component.")
+    fb: str = Field(None, description="The feedback message about how and why the input component can cause the error and how to fix it. Include at least one concrete examples to reproduce and explain the critical errors.")
+
 class Reflector(BaseModel):
-    input_component: str = Field(None, enum=['SCG design', 'Prompt generation'], description="The name of the input component that takes the major responsibility for the error.")
-    feedback: Optional[str] = Field(None, description="The feedback message about how and why the input component is responsible for the error and how to fix it. Include some concrete examples to show the critical errors.")
+    # input_component: str = Field(None, enum=['SCG design', 'Prompt generation'], description="The name of the input component that takes the major responsibility for the error.")
+    # feedback: Optional[str] = Field(None, description="The feedback message about how and why the input component is responsible for the error and how to fix it. Include some concrete examples to show the critical errors.")
+    major_responsible_input_component: str = Field(None, enum=['SCG design', 'Prompt generation'], description="The name of the input component that takes the major responsibility for the error.")
+    input_feedbacks: List[InputFeedback]
 
 class BinaryClassifier(BaseModel):
     answer: str = Field(None, enum=['yes', 'no'], description="The final answer for the binary classification task.")

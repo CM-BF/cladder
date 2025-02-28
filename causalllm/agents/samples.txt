@@ -9,3 +9,31 @@ Output: no
 Sample 3:
 Input: "Imagine a self-contained, hypothetical world with only the following conditions, and without any unmentioned factors or causal relationships: Gwet has a direct effect on cwoi and yomx. Yomx has a direct effect on xevu. Cwoi has a direct effect on xevu. The overall probability of yomx is 20%. For those who are not yomx, the probability of xevu is 86%. For those who are yomx, the probability of xevu is 25%. Is xevu more likely than not xevu overall?"
 Output: yes
+
+Sample 4:
+Input: "Imagine a self-contained, hypothetical world with only the following conditions, and without any unmentioned factors or causal relationships: Xevo has a direct effect on tijv and gyzp. Tijv has a direct effect on gyzp. Method 1: We look at how xevo correlates with gyzp case by case according to tijv. Method 2: We look directly at how xevo correlates with gyzp in general. To understand how xevo affects gyzp, is it more correct to use the Method 1 than Method 2?"
+Output: no
+
+Sample 5:
+Input: "Imagine a self-contained, hypothetical world with only the following conditions, and without any unmentioned factors or causal relationships: Having a sister has a direct effect on tar deposit. Tar deposit has a direct effect on lung cancer. For people who do not have a sister, the probability of lung cancer is 30%. For people who have a sister, the probability of lung cancer is 43%. For people who have a sister, would it be more likely to see lung cancer if the person did not have a sister?"
+Output: no
+
+Sample 6:
+Input: "Imagine a self-contained, hypothetical world with only the following conditions, and without any unmentioned factors or causal relationships: Xevo has a direct effect on tijv. Tijv has a direct effect on gyzp. We know that xevo causes not tijv, and we know that tijv causes not gyzp. Would an individual is gyzp if not xevo instead of xevo?"
+Output: no
+
+Sample 7:
+Input: "Imagine a self-contained, hypothetical world with only the following conditions, and without any unmentioned factors or causal relationships: Smoking has a direct effect on effort and college admission. Effort has a direct effect on college admission. For nonsmokers and are lazy, the probability of college admission is 55%. For nonsmokers and are hard-working, the probability of college admission is 24%. For smokers and are lazy, the probability of college admission is 81%. For smokers and are hard-working, the probability of college admission is 59%. For nonsmokers, the probability of being hard-working is 2%. For smokers, the probability of being hard-working is 59%. If we disregard the mediation effect through effort, would smoking positively affect college admission?"
+Output: yes
+
+Sample 8:
+Input: "Imagine a self-contained, hypothetical world with only the following conditions, and without any unmentioned factors or causal relationships: Zuph has a direct effect on jyka and glimx. Jyka has a direct effect on glimx. For those who are not zuph and are not jyka, the probability of glimx is 100%. For those who are not zuph and are jyka, the probability of glimx is 51%. For those who are zuph and are not jyka, the probability of glimx is 28%. For those who are zuph and are jyka, the probability of glimx is 60%. For those who are not zuph, the probability of jyka is 93%. For those who are zuph, the probability of jyka is 40%. Does zuph negatively affect glimx through jyka?"
+Output: no
+
+Sample 9:
+Input: "Imagine a self-contained, hypothetical world with only the following conditions, and without any unmentioned factors or causal relationships: Drinking coffee has a direct effect on hospitalization status. Broken bones has a direct effect on hospitalization status. The overall probability of drinking coffee is 41%. For people who do not drink coffee and non-hospitalized individuals, the probability of broken bones is 93%. For people who do not drink coffee and hospitalized individuals, the probability of broken bones is 69%. For people who drink coffee and non-hospitalized individuals, the probability of broken bones is 93%. For people who drink coffee and hospitalized individuals, the probability of broken bones is 75%. If we look at hospitalized individuals, does the chance of broken bones increase when drinking coffee?"
+Output: yes
+
+Sample 10:
+Input: "Imagine a self-contained, hypothetical world with only the following conditions, and without any unmentioned factors or causal relationships: Talent has a direct effect on elite institution admission status. Effort has a direct effect on elite institution admission status. For students accepted to elite institutions, the correlation between talent and being hard-working is -0.33. If we look at students accepted to elite institutions, does it mean that talent affects being hard-working?"
+Output: no

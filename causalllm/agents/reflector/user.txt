@@ -7,5 +7,5 @@ Given the following scenario:
 {wrong_output}
 
 Please analyze the above and answer:
-1. Which input component should take the major responsibility for the incorrect output?
-2. Why did this part cause the error? Provide detailed feedback on what went wrong and how it could be improved. Include some examples.
+1. Provide detailed feedback for each input component about why it may cause the error, including potential misunderstandings, logical inconsistencies, or incorrect assumptions. The feedback should include at least one concrete examples to reproduce, explain the critical errors, and potential ways to fix it.
+2. Identify which input component is primarily responsible for the incorrect output.

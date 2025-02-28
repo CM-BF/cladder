@@ -8,6 +8,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from pathlib import Path
 from causalllm.prompt_utils import partial_replace
 from pydantic import Field, create_model
+import openai
 
 models = {'gpt-4o-mini': init_chat_model("gpt-4o-mini", model_provider="openai"),
           'gpt-4o': init_chat_model("gpt-4o", model_provider="openai"),
@@ -41,7 +42,7 @@ def executor(states: AgentState, config: RunnableConfig):
     user_prompt = partial_replace(multi_agent_data[subtask].user_prompt, states['variables'])
     st_prompt = [('system', system_prompt), ('human', user_prompt)]
 
-    response = model.invoke(st_prompt)
+    response = model.with_retry().invoke(st_prompt)
 
 
     subtask_response = [system_prompt, user_prompt, response.content]
@@ -52,7 +53,7 @@ def executor(states: AgentState, config: RunnableConfig):
         schema = create_model(f'{subtask}subtask',
                               **{output_variable: (str, Field(None, description="One of the final concluded answer(s)"))
                                  for output_variable in multi_agent_data[subtask].output_variables})
-    st_extractor = extractor_template | model.with_structured_output(schema=schema)
+    st_extractor = extractor_template | model.with_structured_output(schema=schema).with_retry()
     extracted_data = st_extractor.invoke({'text': response.content})
     return {'variables': extracted_data.__dict__, 'agent_response': {subtask: subtask_response}}
 
