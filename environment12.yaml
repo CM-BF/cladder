@@ -16,10 +16,8 @@ dependencies:
   - jupyterlab
   - tqdm
   - matplotlib
-  - scipy=1.11
   - jsonnet
   - cmake
-  - pandas
   - pomegranate==0.14.8
   - dowhy
   - pip
@@ -41,9 +39,11 @@ dependencies:
       - omniply==0.1.1
       - pytest
       - plotly
+      - pandas
+      - scipy
+      - peft
       - tabulate
       - efficiency
       - transformers
       - trl
-      - flash-attn
-      - --no-build-isolation
+      - hydra-core

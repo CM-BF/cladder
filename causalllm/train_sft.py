@@ -258,6 +258,7 @@ class CausalTrainer:
                 model_name,
                 trust_remote_code=self.cfg.model.trust_remote_code
             )
+        tokenizer.padding_side = 'left'
 
         # Process each dataset file for testing
         # Prepare test data
@@ -266,17 +267,38 @@ class CausalTrainer:
         _, test_dataset = self._prepare_data(data_file_obj, text_interface)
         test_data = test_dataset.to_list()
 
-        for i, datum in tqdm(enumerate(test_data), desc="Testing"):
-            query = datum["prompt"]
+        batch_size = 32
 
-            # Generate response using the model
-            response = self._generate_model_response(model, tokenizer, query, test_config)
+        for i in tqdm(range(0, len(test_data), batch_size), desc="Testing batches"):
+            batch = test_data[i:i + batch_size]
+            batch_queries = [item["prompt"] for item in batch]
 
-            # Extract the answer
-            pred = self._extract_answer(response)
-            datum['pred'] = pred
-            if i % 100 == 0:
-                print(f"Query: {query}\n\nResponse: {response}\n\nExtracted Answer: {pred}\n\nExpected Answer: {datum['truth']}\n\n")
+            # Generate responses for the batch
+            batch_responses = self._generate_batch_responses(
+                model, tokenizer, batch_queries, test_config
+            )
+
+            # Extract answers from responses
+            for j, response in enumerate(batch_responses):
+                pred = self._extract_answer(response)
+                test_data[i + j]['pred'] = pred
+
+            # Print sample for debugging
+            if i % (5 * batch_size) == 0 and batch:
+                print(
+                    f"Sample Query: {batch_queries[0]}\n\nResponse: {batch_responses[0]}\n\nExtracted Answer: {test_data[i]['pred']}\n\nExpected Answer: {test_data[i]['truth']}\n\n")
+
+        # for i, datum in tqdm(enumerate(test_data), desc="Testing"):
+        #     query = datum["prompt"]
+        #
+        #     # Generate response using the model
+        #     response = self._generate_model_response(model, tokenizer, query, test_config)
+        #
+        #     # Extract the answer
+        #     pred = self._extract_answer(response)
+        #     datum['pred'] = pred
+        #     if i % 100 == 0:
+        #         print(f"Query: {query}\n\nResponse: {response}\n\nExtracted Answer: {pred}\n\nExpected Answer: {datum['truth']}\n\n")
 
         test_df = pd.DataFrame(test_data)
         test_df.to_csv(text_interface.save_path, index=False)
@@ -338,6 +360,85 @@ class CausalTrainer:
         response = tokenizer.decode(output_ids[0], skip_special_tokens=True)
 
         return response
+
+    def _generate_batch_responses(self, model, tokenizer, instructions, test_config):
+        """Generate responses for a batch of instructions"""
+
+        # Format the instructions if needed
+        if test_config.use_chat_template:
+            input_texts = [
+                tokenizer.apply_chat_template(
+                    [{"role": "user", "content": instruction}],
+                    tokenize=False,
+                    add_generation_prompt=True
+                )
+                for instruction in instructions
+            ]
+        else:
+            input_texts = instructions
+
+        # Tokenize all inputs
+        batch_inputs = tokenizer(
+            input_texts,
+            return_tensors="pt",
+            padding=True,
+            truncation=True,
+            max_length=2048  # Add a reasonable max length to avoid OOM
+        ).to(model.device)
+
+        # Define stopping criteria for </answer> tag
+        stopping_criteria = None
+        if hasattr(test_config, "use_stopping_criteria") and test_config.use_stopping_criteria:
+            from transformers import StoppingCriteria, StoppingCriteriaList
+
+            class AnswerTagStoppingCriteria(StoppingCriteria):
+                def __init__(self, tokenizer, stop_strings=["</answer>"]):
+                    self.tokenizer = tokenizer
+                    self.stop_ids = [
+                        self.tokenizer.encode(stop_str, add_special_tokens=False)
+                        for stop_str in stop_strings
+                    ]
+
+                def __call__(self, input_ids, scores, **kwargs):
+                    # Check last generated tokens for stop sequences
+                    for batch_idx, seq in enumerate(input_ids):
+                        seq_len = len(seq)
+                        for stop_ids in self.stop_ids:
+                            stop_len = len(stop_ids)
+                            if seq_len >= stop_len:
+                                if seq[-stop_len:].tolist() == stop_ids:
+                                    return True
+                    return False
+
+            stopping_criteria = StoppingCriteriaList([
+                AnswerTagStoppingCriteria(tokenizer)
+            ])
+
+        # Generate responses
+        with torch.no_grad():
+            output_ids = model.generate(
+                batch_inputs.input_ids,
+                attention_mask=batch_inputs.attention_mask,
+                max_new_tokens=test_config.max_new_tokens,
+                temperature=test_config.temperature,
+                top_p=test_config.top_p,
+                do_sample=test_config.do_sample,
+                num_beams=test_config.num_beams,
+                repetition_penalty=test_config.repetition_penalty,
+                stopping_criteria=stopping_criteria,
+                pad_token_id=tokenizer.pad_token_id,
+                eos_token_id=tokenizer.eos_token_id,
+            )
+
+        # Extract only the newly generated tokens for each sequence
+        responses = []
+        for i, output in enumerate(output_ids):
+            input_length = batch_inputs.input_ids[i].shape[0]
+            response_ids = output[input_length:]
+            response = tokenizer.decode(response_ids, skip_special_tokens=True)
+            responses.append(response)
+
+        return responses
 
     def _extract_answer(self, response):
         """Extract 'Yes' or 'No' from between <answer> tags"""

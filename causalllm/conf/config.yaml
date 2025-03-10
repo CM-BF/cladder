@@ -32,7 +32,7 @@ testing:
   use_test_split: true  # Whether to use the test split from training or all data
   use_quantization: true  # Whether to use quantization for inference
   use_chat_template: true  # Whether to use the chat template for formatting
-  max_new_tokens: 512
+  max_new_tokens: 1024
   temperature: 0.1
   top_p: 0.95
   do_sample: true
