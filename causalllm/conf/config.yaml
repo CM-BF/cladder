@@ -1,0 +1,73 @@
+# conf/config.yaml
+defaults:
+  - _self_
+  - model: qwen
+#  - override hydra/job_logging: colorlog
+#  - override hydra/hydra_logging: colorlog
+
+experiment:
+  enable_cot: false
+  enable_fewshot: false
+  given_cot_until_step: null  # Can be null or 1-6
+  ask_about: "answer"  # Options: answer, graph, query_type, formal_form, given_info, estimand, estimate
+  reasoning: false
+  paraphrase_i: 0
+
+output:
+  root_path: ${oc.env:ROOT_PATH}
+  save_model: true
+
+dataset:
+  percent_of_train_dataset: 0.9
+  use_special_template: false
+  response_template: " ### Answer:"
+  instruction_prompt_template: '"### Human:"'
+  seed: 19
+  shuffle: false
+
+training:
+  num_train_epochs: 1
+  fp16: false
+  bf16: true
+  per_device_train_batch_size: 4
+  gradient_accumulation_steps: 1
+  gradient_checkpointing: true
+  learning_rate: 0.00015
+  weight_decay: 0.01
+  optim: "paged_adamw_32bit"
+  lr_scheduler_type: "cosine"
+  max_steps: -1
+  warmup_ratio: 0.03
+  group_by_length: true
+  save_steps: 0
+  logging_steps: 25
+  max_seq_length: null
+  packing: false
+  device_map: 0  # Will be converted to {"": 0} in code
+
+lora:
+  r: 64
+  alpha: 128  # alpha = r * 2
+  dropout: 0.1
+  bias: "none"
+  task_type: "CAUSAL_LM"
+  target_modules:
+    - "q_proj"
+    - "k_proj"
+    - "v_proj"
+    - "o_proj"
+
+quantization:
+  load_in_4bit: true
+  compute_dtype: "float16"
+  quant_type: "nf4"
+  use_double_quant: false
+
+hydra:
+  run:
+    dir: ${output.root_path}/outputs/${model.name}_${now:%Y%m%d%H%M%S}
+  sweep:
+    dir: ${output.root_path}/multirun/${now:%Y%m%d}
+    subdir: ${hydra.job.override_dirname}
+  job:
+    chdir: true

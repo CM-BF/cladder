@@ -1,0 +1,65 @@
+# Default SFT configuration
+
+# General experiment settings
+config:
+  experiment:
+    exp_prefix: "qwen-sft"
+    reasoning: false
+
+  # Model settings
+  model:
+    name: "Qwen/Qwen2.5-3B-Instruct"
+    new_model: "QWen-CLadder-agent"
+    trust_remote_code: true
+    device_map: {"": 0}
+
+  # LoRA adapter settings
+  lora:
+    r: 64
+    alpha: 128  # Will be computed as r * 2 if null
+    dropout: 0.1
+    target_modules: ["q_proj", "k_proj", "v_proj", "o_proj"]
+    bias: "none"
+    task_type: "CAUSAL_LM"
+
+  # QLoRA quantization settings
+  qlora:
+    load_in_4bit: true
+    compute_dtype: "float16"
+    quant_type: "nf4"
+    use_double_quant: false
+
+  # Training parameters
+  training:
+    num_epochs: 1
+    fp16: false
+    bf16: true
+    batch_size: 4
+    gradient_accumulation_steps: 1
+    gradient_checkpointing: true
+    learning_rate: 0.00015
+    weight_decay: 0.01
+    optim: "paged_adamw_32bit"
+    lr_scheduler_type: "cosine"
+    max_steps: -1
+    warmup_ratio: 0.03
+    group_by_length: true
+    save_steps: 0
+    logging_steps: 25
+    max_seq_length: null
+    packing: false
+
+  # Dataset parameters
+  dataset:
+    percent_of_train_dataset: 0.9
+    use_special_template: false
+    response_template: " ### Answer:"
+    instruction_prompt_template: '"### Human:"'
+    use_llama_like_model: false
+
+  # Chain-of-Thought settings
+  cot:
+    enable: false
+    enable_fewshot: false
+    given_cot_until_step: null
+    ask_about: "answer"

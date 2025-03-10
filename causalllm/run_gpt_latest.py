@@ -452,7 +452,7 @@ You are an expert in causal inference. The following question is not a typical c
             exp_folder.mkdir(parents=True, exist_ok=True)
 
             write_out_file = exp_folder / 'output.csv'
-            write_out_files.append(write_out_file)
+            write_out_files.append(str(write_out_file))
             # == make file name end ==
 
             # --- Create LLM Text interface taking charge of template/prompt composer/response processor ---
@@ -530,6 +530,9 @@ You are an expert in causal inference. The following question is not a typical c
                             print(state)
                         else:
                             all_execution_results.append(state['execution_results'][-1])
+                    print('\n--------------------------\n')
+                    print(all_execution_results)
+                    print('\n--------------------------\n')
 
                     full_run_builder = StateGraph(SCGState, ConfigSchema)
                     full_run_builder.add_node('full_execution', scg_full_execution)

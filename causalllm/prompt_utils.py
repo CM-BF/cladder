@@ -2,6 +2,7 @@ import re
 import warnings
 from collections import defaultdict
 
+from causalbenchmark.eval.data_stats_old import enable_cot
 from causalllm.definitions import ROOT_PATH, missing_step
 
 
@@ -110,6 +111,8 @@ class TextInterfaceForLLMs:
         self.q_type2prompt_suffix = {
             'answer': f'Start your answer with {verbalize_list_of_options(self.prefix2norm)}, followed by additional reasoning or evidence'
                       f' to support your explanation.',
+            'direct_answer': f'Answer the question using only {verbalize_list_of_options(self.prefix2norm)}.',
+            'thinking_answer': f'Show your work in <think> </think> tags. And return the final answer {verbalize_list_of_options(self.prefix2norm)} in <answer> </answer> tags, for example <answer> Yes </answer>',
             'graph': 'Identify the causal graph that depicts the relationships in the scenario. {var_notions} '
                      'The diagram should simply consist of edges denoted in "var1 -> var2" format, separated by commas.',
             'query_type': f'Identify the type of query implied by the main question. Choices include'
@@ -139,6 +142,10 @@ class TextInterfaceForLLMs:
         if list_of_dicts is not None:
             self._prepare_fewshot(list_of_dicts)
             self.data_in = self.prompt_composer(list_of_dicts, self.ask_about)
+
+    def prepare_prompt_sft(self, list_of_dicts, reasoning=False):
+        if list_of_dicts is not None:
+            self.data_in = self.prompt_composer_sft(list_of_dicts, self.ask_about, reasoning=reasoning)
 
     def _datum2var_notions(self, datum, keep_var_values=False):
         var_symb_suff = 'name'
@@ -223,6 +230,37 @@ class TextInterfaceForLLMs:
 
         return data
 
+    def prompt_composer_sft(self, data, ask_about, reasoning=False):
+        def convert_truth_to_norm(value):
+            return self.truth2norm.get(value.lower() if isinstance(value, str) else value, value)
+
+        from copy import deepcopy
+
+        for datum in data:
+            truth_norm = convert_truth_to_norm(datum['truth'])
+            # -- Complete all thoughts: Change {var_notions} to e.g. Use "X" to represent "eating citrus". Use "V2" to represent "vitmain C". Use "Y" to represent "curly hair" --
+            q2prompt = deepcopy(self.q_type2prompt_suffix)
+            q2prompt['answer'] = q2prompt['thinking_answer'] if reasoning else q2prompt['direct_answer']
+            q2prompt = {k: v.format(var_notions=self._datum2var_notions(datum, keep_var_values=k == 'given_info'),
+                                    question=datum['old']['question'])
+                        for k, v in q2prompt.items()
+                        }
+            default_query_suffix = q2prompt[ask_about]
+            key = 'raw_prompt_without_q' if ask_about in {'graph', 'given_info'} else 'raw_prompt'
+            # TODO: add few-shot to prompt here.
+            prompt = f"{datum[key]}\n\n{default_query_suffix}" # Simpliest prompt: Background + Answer_requirement
+
+            response = SFTQAComposer(self).compose_response(datum, reasoning=reasoning)
+
+            # del datum['raw_prompt'], datum['raw_prompt_without_q'], datum['old']
+            datum.update({
+                'prompt': prompt,
+                'response': response,
+                'truth_norm': truth_norm,
+            })
+
+        return data
+
     def convert_to_norm(self, value):
         invalid = -1
         value = str(value).lower().strip().strip('"')
@@ -276,6 +314,105 @@ class QAComposer():
             cot_truth = '\n\n'.join(step2answer)
             qa_pair = f"{datum['raw_prompt']}\n\n{cot_truth}"
         return qa_pair
+
+    def sub_question_prompts(self, data: Dict[str, Any], include_steps: Iterable = ('variables', 'graph')):
+        r'''
+        Compose question : answer pairs for each sub step
+
+        when given an unordered collection of known steps returns a dict of solved sub-questions and their answers
+        when given a list or tuple of known steps returns the corresponding list of solved sub-questions and their answers
+
+        Note: adjustement set questions are not supported
+        '''
+        self.q_type2step_prefix = self.text_interface.q_type2step_prefix
+        known_steps = self.known_steps
+        data = data['old']
+        # data['reasoning'] = data['old']['reasoning']
+        # import pdb;pdb.set_trace()
+
+        assert all([step in known_steps for step in include_steps]), f'include_steps must be a subset of {known_steps}'
+
+        terms = {}
+
+        if 'variables' in include_steps:
+            try:
+                terms['variables'] = data['reasoning']['step0']
+            except:
+                # it is the "backadj" case: =========== No reasoning provided ===========
+                return [data['answer'].capitalize()]
+
+        if 'graph' in include_steps:
+            step1 = data['reasoning']['step1'].replace(',', ', ')
+            terms['graph'] = f'Step 1) {self.q_type2step_prefix["graph"]}: {step1}.'
+
+        qtype = data['meta']['query_type']
+        query_title = self.text_interface.long_query_types[qtype].lower()
+        if 'query_type' in include_steps:
+            terms['query_type'] = f'Step 2) {self.q_type2step_prefix["query_type"]}: "{query_title}".'
+
+        formal_form = data['meta']['formal_form']  # should be equivalent to data['reasoning']['step2']
+        if 'formal_form' in include_steps:
+            terms['formal_form'] = f'Step 3) {self.q_type2step_prefix["formal_form"]}: {formal_form}.'
+
+        if 'given_info' in include_steps:
+            step4 = data['reasoning']['step4'].replace('\n', '; ')
+            if len(step4) == 0:
+                # terms['given_info'] = ''
+                step4 = 'No relevant data is provided'
+            terms['given_info'] = f'Step 4) {self.q_type2step_prefix["given_info"]}: {step4}.'
+
+        estimand = data['meta'].get('estimand')  # should be equivalent to data['reasoning']['step3']
+        if estimand is None:  # for rung 1 questions, estimand is the same as formal_form
+            estimand = formal_form
+            if qtype == 'collider_bias':
+                estimand = '0'
+        if 'estimand' in include_steps:
+            terms['estimand'] = f'Step 5) {self.q_type2step_prefix["estimand"]}: ' \
+                                f'We use causal inference to derive the estimand ' \
+                                f'implied by the causal graph for the query type "{query_title}":\n' \
+                                f'{formal_form}\n' \
+                                f'= {estimand}'
+        if 'estimate' in include_steps:
+            estimate = data['reasoning']['step5']
+            terms['estimate'] = f'Step 6) {self.q_type2step_prefix["estimate"]}:\n' \
+                                f'{estimand}\n' \
+                                f'= {estimate}'
+
+        end = data['reasoning']['end']
+        answer = data['answer']
+        if 'interpretation' in include_steps:
+            if qtype == 'collider_bias':
+                reasoning = data['reasoning']['step3'].replace('.', '')
+                terms['interpretation'] = f'Since {reasoning}, ' \
+                                          f'the overall answer to the question is {answer}.'
+            else:
+                terms['interpretation'] = f'Since the estimate for the estimand is {end}, ' \
+                                          f'the overall answer to the question is {answer}.'
+
+        if isinstance(include_steps, (list, tuple)):
+            return [terms[step] for step in include_steps]
+        return terms
+
+
+class SFTQAComposer():
+    from typing import Dict, Any, Iterable
+
+    known_steps = ['variables', 'graph', 'query_type', 'formal_form', 'given_info',  # parsing
+                   'estimand', 'estimate', 'interpretation'  # reasoning
+                   ]
+
+    def __init__(self, text_interface):
+        self.text_interface = text_interface
+
+
+    def compose_response(self, datum, reasoning):
+        if not reasoning:
+            response = f"{datum['truth'].capitalize()}"
+        else:
+            step2answer = self.sub_question_prompts(datum, include_steps=self.known_steps)
+            thinking = '\n\n'.join(step2answer)
+            response = f"<think> {thinking} </think>\n<answer> {datum['truth'].capitalize()} </answer>"
+        return response
 
     def sub_question_prompts(self, data: Dict[str, Any], include_steps: Iterable = ('variables', 'graph')):
         r'''

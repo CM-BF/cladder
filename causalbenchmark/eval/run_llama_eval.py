@@ -82,8 +82,8 @@ class Scorer:
         print(score_df.mean())
         score_df.describe()
 
-        import pdb;
-        pdb.set_trace()
+        # import pdb;
+        # pdb.set_trace()
         return df
 
     def truth_pred_scorer(self, df):
@@ -91,8 +91,8 @@ class Scorer:
 
         df = self.apply_score_func(df)
         # df['score'] = (df['pred_norm'] == df['truth_norm'])
-        import pdb;
-        pdb.set_trace()
+        # import pdb;
+        # pdb.set_trace()
 
         if ask_about not in {'graph'}:
             from sklearn.metrics import classification_report
@@ -105,8 +105,8 @@ class Scorer:
             report = classification_report(df_valid['truth_norm'], df_valid['pred_norm'], digits=4)
             print(report)
 
-        import pdb;
-        pdb.set_trace()
+        # import pdb;
+        # pdb.set_trace()
 
         res_dfs = []
         for uniq_vign_key in ['model_version']:

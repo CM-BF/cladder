@@ -1,8 +1,14 @@
 ## python file that generates predictions from a pretrained language model from huggingface transformers
+r'''
+Run `python generate_data_llama.py ../../data/cladder-v1/cladder-v1-q-balanced.json ../../data/cladder-v1/cladder-v1-meta-models.json`
+to get data `causal_benchmark_data_llama.csv` first
+'''
 import torch
 from transformers import  LlamaForCausalLM, LlamaTokenizer
+from transformers import AutoTokenizer, AutoModelForCausalLM
 import csv
 import pandas as pd
+from tqdm import trange
 
 def convert_to_norm(value):
     prefix2norm = {
@@ -18,8 +24,12 @@ def convert_to_norm(value):
     return invalid
 
 def main(locationLlamaHF,outputFileName,inputFileName):
-    tokenizer = LlamaTokenizer.from_pretrained(locationLlamaHF,cache_dir="~/cache/")
-    model = LlamaForCausalLM.from_pretrained(locationLlamaHF,device_map="auto",cache_dir="~/cache/")
+    # Load model directly
+
+    tokenizer = AutoTokenizer.from_pretrained("meta-llama/Llama-2-7b-hf")
+    model = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-2-7b-hf", device_map="auto")
+    # tokenizer = LlamaTokenizer.from_pretrained('meta-llama/Llama-2-7b-hf',cache_dir="~/cache/")
+    # model = LlamaForCausalLM.from_pretrained('meta-llama/Llama-2-7b-hf',device_map="auto",cache_dir="~/cache/")
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     ## read prompts from csv and generate predictions
     df=pd.read_csv(inputFileName)
@@ -31,7 +41,7 @@ def main(locationLlamaHF,outputFileName,inputFileName):
         writer.writerow(['question_id', 'rung', 'prompt', 'truth', 'truth_norm', 'pred', 'pred_norm','model_version'])  # Include 'question_id' column in the header
 
     with torch.no_grad():
-        for i in range(df.shape[0]):
+        for i in trange(df.shape[0]):
             prompt = df.at[i, 'prompt'] + "\nAnswer:"  # Fetch prompt from 'prompt' column
             question_id = df.at[i, 'question_id']  # Fetch question_id from 'question_id' column
             truth = df.at[i, 'truth']

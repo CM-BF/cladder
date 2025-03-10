@@ -5,6 +5,4 @@ ask_about: answer
 given_cot_until_step: null
 model_versions:
     - gpt-4o-mini
-k_graph: 10
-max_scg_trials: 5
-max_num_executions: 30
+reasoning: True

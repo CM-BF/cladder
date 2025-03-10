@@ -1,0 +1,15 @@
+# conf/model/llama.yaml
+name: "meta-llama/Llama-2-7b-hf"
+new_model: "Llama-CLadder-agent"
+trust_remote_code: true
+
+# Override target modules for Llama architecture
+lora:
+  target_modules:
+    - "q_proj"
+    - "k_proj"
+    - "v_proj"
+    - "o_proj"
+    - "gate_proj"
+    - "up_proj"
+    - "down_proj"
