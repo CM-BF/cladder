@@ -236,7 +236,8 @@ class CausalTrainer:
                 model_path,
                 quantization_config=bnb_config,
                 device_map=device_map,
-                trust_remote_code=self.cfg.model.trust_remote_code
+                trust_remote_code=self.cfg.model.trust_remote_code,
+                # attn_implementation = "flash_attention_2"
             )
         else:
             model = AutoModelForCausalLM.from_pretrained(
@@ -275,7 +276,7 @@ class CausalTrainer:
             pred = self._extract_answer(response)
             datum['pred'] = pred
             if i % 100 == 0:
-                print(f"Query: {query}\n\nResponse: {response}\n\nExtracted Answer: {pred}")
+                print(f"Query: {query}\n\nResponse: {response}\n\nExtracted Answer: {pred}\n\nExpected Answer: {datum['truth']}\n\n")
 
         test_df = pd.DataFrame(test_data)
         test_df.to_csv(text_interface.save_path, index=False)
