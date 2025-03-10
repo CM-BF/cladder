@@ -1,6 +1,9 @@
 import operator
+import os.path
+from functools import partial
 from pathlib import Path
 from typing import Literal, Any, List, TypedDict, Annotated, Dict, Tuple
+import re
 
 import hydra
 from omegaconf import DictConfig, OmegaConf
@@ -30,12 +33,16 @@ class CausalTrainer:
     def __init__(self, cfg: DictConfig):
         self.cfg = cfg
         # Setting up paths
-        self.output_dir = Path.cwd()  # Hydra changes working directory
+        if self.cfg.testing.only_test:
+            assert self.cfg.testing.test_model_path is not None
+            self.output_dir = Path(self.cfg.testing.test_model_path).parent
+            self.cfg = self.load_config_with_testing_override(self.output_dir / "config_dump.yaml", self.cfg.testing)
+        else:
+            self.output_dir = Path.cwd()  # Hydra changes working directory
+            # Save the config for reproducibility
+            with open(self.output_dir / "config_dump.yaml", "w") as f:
+                f.write(OmegaConf.to_yaml(cfg))
         print(f"Working directory: {self.output_dir}")
-
-        # Save the config for reproducibility
-        with open(self.output_dir / "config_dump.yaml", "w") as f:
-            f.write(OmegaConf.to_yaml(cfg))
 
     def train_sft(self):
         """Train a model using Supervised Fine-Tuning with configurations from Hydra"""
@@ -53,7 +60,7 @@ class CausalTrainer:
 
         # Create text interface for prompt composition
         text_interface = TextInterfaceForLLMs(
-            write_out_file,
+            str(write_out_file),
             ask_about=ask_about,
             enable_fewshot=enable_fewshot,
             enable_cot=enable_cot,
@@ -62,14 +69,17 @@ class CausalTrainer:
 
         # Load dataset
         df_list = DataFileList(ask_about=ask_about)
+        data_file_obj = df_list.data_objs[0]
 
-        # Process each dataset file
-        for data_file_obj in df_list.data_objs:
+        # Run testing if enabled
+        if self.cfg.testing.only_test:
+            self.test_model(data_file_obj, model_name, new_model, text_interface)
+        else:
+            # Process each dataset file
             self._perform_sft(data_file_obj, model_name, reasoning, text_interface, new_model)
+            self.test_model(data_file_obj, model_name, new_model, text_interface)
 
-        # Optional: evaluate the model
-        if self.cfg.output.evaluate:
-            scorer = Scorer([str(write_out_file)], ask_about)
+
 
     def _perform_sft(self, data_file_obj, model_name, reasoning, text_interface, new_model):
         """Perform the actual SFT training for a given dataset"""
@@ -83,29 +93,10 @@ class CausalTrainer:
         device_map = {"": 0} if training_config.device_map == 0 else training_config.device_map
 
         # Prepare the dataset
-        text_interface.prepare_prompt_sft(data_file_obj.data, reasoning=reasoning)
-        data = text_interface.data_in
-        all_samples = list(map(lambda x: {k: v for k, v in x.items() if k != 'old'}, data))
-        dataset = Dataset.from_list(all_samples)
+        train_dataset, eval_dataset = self._prepare_data(data_file_obj, text_interface)
 
-        percent_of_train_dataset = dataset_config.percent_of_train_dataset
-        # "prompt" is a special column key for SFTTrainer's data preprocessing
-        dataset = dataset.rename_columns({"prompt": "instruction", "response": "output"})
-        other_columns = [i for i in dataset.column_names if i not in ["instruction", "output"]]
-        dataset = dataset.remove_columns(other_columns)
+        train_dataset, eval_dataset = map(partial(self.format_dataset, dataset_config=dataset_config), [train_dataset, eval_dataset])
 
-        # Format dataset for model input
-        if not dataset_config.use_special_template:
-            dataset = dataset.map(self._format_transform, desc="Formatting dataset to ChatML")
-
-        # Split dataset
-        split_dataset = dataset.train_test_split(
-            train_size=int(dataset.num_rows * percent_of_train_dataset),
-            seed=dataset_config.seed,
-            shuffle=dataset_config.shuffle
-        )
-        train_dataset = split_dataset["train"]
-        eval_dataset = split_dataset["test"]
         print(f"Size of the train set: {len(train_dataset)}. Size of the validation set: {len(eval_dataset)}")
 
         # Setup LoRA configuration
@@ -163,7 +154,7 @@ class CausalTrainer:
             model_name,
             trust_remote_code=self.cfg.model.trust_remote_code
         )
-        tokenizer.pad_token = tokenizer.eos_token
+        tokenizer.pad_token = tokenizer.eos_token if tokenizer.pad_token is None else tokenizer.pad_token
         tokenizer.padding_side = "right"  # Fix weird overflow issue with fp16 training
 
         # Setup data collator and formatting function
@@ -201,6 +192,180 @@ class CausalTrainer:
             save_path = self.output_dir / new_model
             trainer.model.save_pretrained(save_path)
             print(f"Model saved to {save_path}")
+            tokenizer.save_pretrained(save_path)
+
+    def format_dataset(self, dataset, dataset_config):
+        # "prompt" is a special column key for SFTTrainer's data preprocessing
+        dataset = dataset.rename_columns({"prompt": "instruction", "response": "output"})
+        other_columns = [i for i in dataset.column_names if i not in ["instruction", "output"]]
+        dataset = dataset.remove_columns(other_columns)
+        # Format dataset for model input
+        if not dataset_config.use_special_template:
+            dataset = dataset.map(self._format_transform, desc="Formatting dataset to ChatML")
+        return dataset
+
+    def test_model(self, data_file_obj, model_name, new_model_name, text_interface):
+        """Test the trained model on the test dataset and compute accuracy"""
+        print("\n=== Starting model testing ===")
+
+        # Extract test config
+        test_config = self.cfg.testing
+
+        # Determine model path
+        if test_config.only_test:
+            model_path = test_config.test_model_path
+        else:
+            model_path = self.output_dir / new_model_name
+
+
+        # Load the model
+        device_map = "auto" if torch.cuda.is_available() else None
+        print(f"Loading model from {model_path}")
+
+        # Setup quantization if needed
+        if test_config.use_quantization:
+            quant_config = self.cfg.quantization
+            compute_dtype = getattr(torch, quant_config.compute_dtype)
+            bnb_config = BitsAndBytesConfig(
+                load_in_4bit=quant_config.load_in_4bit,
+                bnb_4bit_quant_type=quant_config.quant_type,
+                bnb_4bit_compute_dtype=compute_dtype,
+                bnb_4bit_use_double_quant=quant_config.use_double_quant,
+            )
+            model = AutoModelForCausalLM.from_pretrained(
+                model_path,
+                quantization_config=bnb_config,
+                device_map=device_map,
+                trust_remote_code=self.cfg.model.trust_remote_code
+            )
+        else:
+            model = AutoModelForCausalLM.from_pretrained(
+                model_path,
+                device_map=device_map,
+                trust_remote_code=self.cfg.model.trust_remote_code
+            )
+
+        print(f"Active adapter: {model.active_adapter()}")
+        # Load tokenizer
+        try:
+            tokenizer = AutoTokenizer.from_pretrained(
+                model_path,
+                trust_remote_code=self.cfg.model.trust_remote_code
+            )
+        except:
+            tokenizer = AutoTokenizer.from_pretrained(
+                model_name,
+                trust_remote_code=self.cfg.model.trust_remote_code
+            )
+
+        # Process each dataset file for testing
+        # Prepare test data
+
+
+        _, test_dataset = self._prepare_data(data_file_obj, text_interface)
+        test_data = test_dataset.to_list()
+
+        for i, datum in tqdm(enumerate(test_data), desc="Testing"):
+            query = datum["prompt"]
+
+            # Generate response using the model
+            response = self._generate_model_response(model, tokenizer, query, test_config)
+
+            # Extract the answer
+            pred = self._extract_answer(response)
+            datum['pred'] = pred
+            if i % 100 == 0:
+                print(f"Query: {query}\n\nResponse: {response}\n\nExtracted Answer: {pred}")
+
+        test_df = pd.DataFrame(test_data)
+        test_df.to_csv(text_interface.save_path, index=False)
+
+        text_interface.response_processor(model_version=f"{new_model_name}")
+
+        scorer = Scorer([text_interface.save_path], ask_about='answer', save_perfomance=text_interface.save_path)
+
+    def _prepare_data(self, data_file_obj, text_interface):
+        """Prepare data for testing"""
+        # Use the same preprocessing as for training
+        text_interface.prepare_prompt_sft(data_file_obj.data, reasoning=self.cfg.experiment.reasoning)
+        data = text_interface.data_in
+        all_samples = list(map(lambda x: {k: v for k, v in x.items() if k != 'old'}, data))
+
+        # Filter based on test split if needed
+        dataset = Dataset.from_list(all_samples)
+        split_dataset = dataset.train_test_split(
+            train_size=self.cfg.dataset.percent_of_train_dataset,
+            seed=self.cfg.dataset.seed,
+            shuffle=self.cfg.dataset.shuffle
+        )
+        train_dataset = split_dataset["train"]
+        test_dataset = split_dataset["test"]
+
+        return train_dataset, test_dataset
+
+    def _generate_model_response(self, model, tokenizer, instruction, test_config):
+        """Generate a response from the model given an instruction"""
+        # Format the instruction if needed
+        if test_config.use_chat_template:
+            input_text = tokenizer.apply_chat_template(
+                [{"role": "user", "content": instruction}],
+                tokenize=False,
+                add_generation_prompt=True
+            )
+        else:
+            input_text = instruction
+
+        # Tokenize the input
+        inputs = tokenizer(input_text, return_tensors="pt").to(model.device)
+
+        # Generate response
+        with torch.no_grad():
+            output_ids = model.generate(
+                inputs.input_ids,
+                max_new_tokens=test_config.max_new_tokens,
+                temperature=test_config.temperature,
+                top_p=test_config.top_p,
+                do_sample=test_config.do_sample,
+                num_beams=test_config.num_beams,
+                repetition_penalty=test_config.repetition_penalty,
+            )
+
+        # Extract the new tokens only (excluding the input)
+        output_ids = output_ids[:, inputs.input_ids.shape[1]:]
+
+        # Decode the tokens to get the response
+        response = tokenizer.decode(output_ids[0], skip_special_tokens=True)
+
+        return response
+
+    def _extract_answer(self, response):
+        """Extract 'Yes' or 'No' from between <answer> tags"""
+        pattern = r'<answer>(.*?)</answer>'
+        match = re.search(pattern, response, re.DOTALL)
+
+        if match:
+            answer_text = match.group(1).strip().lower()
+            # Check if the answer is 'yes' or 'no'
+            if 'yes' in answer_text:
+                return 'yes'
+            elif 'no' in answer_text:
+                return 'no'
+        else:
+            # if cannot find the <answer> tags, find the first yes or no, neglecting capitalization
+            answer_text = re.search(r'\b(yes|no)\b', response, re.IGNORECASE)
+            if answer_text:
+                return answer_text.group(1).lower()
+
+        return None
+
+    def _compare_answer(self, extracted_answer, truth):
+        """Compare the extracted answer with the truth value"""
+        # Normalize both to lowercase
+        extracted_lower = extracted_answer.lower() if extracted_answer else None
+        truth_lower = truth.lower() if truth else None
+
+        # Compare
+        return extracted_lower == truth_lower
 
     def _format_transform(self, example):
         """Format dataset examples into messages format"""
@@ -213,6 +378,22 @@ class CausalTrainer:
     def _special_formatting_prompts(self, example):
         """Format using custom template if needed"""
         return f"{self.cfg.dataset.instruction_prompt_template}{example['instruction']}\n{self.cfg.dataset.response_template} {example['output']}"
+
+    def load_config_with_testing_override(self, config_file: Path, testing_config = None) -> DictConfig:
+        """
+        Load a saved config file and optionally override its testing section.
+        """
+        if not config_file.exists():
+            raise FileNotFoundError(f"Config file not found: {config_file}")
+
+        # Convert to OmegaConf
+        cfg = OmegaConf.load(config_file)
+
+        # Override testing config if provided
+        if testing_config is not None:
+            cfg.testing = testing_config
+
+        return cfg
 
 
 @hydra.main(config_path="conf", config_name="config", version_base="1.3")

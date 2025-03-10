@@ -3,11 +3,12 @@ from causalllm.definitions import ROOT_PATH
 
 
 class Scorer:
-    def __init__(self, files, ask_about, data_list_of_dicts=None):
+    def __init__(self, files, ask_about, save_perfomance=None):
         if not len(files):
             print('No files for evaluation')
             import sys
             sys.exit()
+        self.save_perfomance = save_perfomance if save_perfomance else f'{ROOT_PATH}/outputs/performance.csv'
 
         from efficiency.log import fread
         data_list = []
@@ -109,7 +110,7 @@ class Scorer:
         import pandas as pd
         res_df = pd.concat(res_dfs) # - a weird way to show the performance -
         print(res_df)
-        res_df.to_csv(f'{ROOT_PATH}/outputs/performance.csv')
+        res_df.to_csv(self.save_perfomance)
 
         # -- 4. Aggregate the results by query_type x model_version | score --
         def pivot_df(df, rows='query_type', columns='model_version', score_col='score', verbose=True):

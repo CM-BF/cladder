@@ -10,7 +10,7 @@ experiment:
   enable_fewshot: false
   given_cot_until_step: null  # Can be null or 1-6
   ask_about: "answer"  # Options: answer, graph, query_type, formal_form, given_info, estimand, estimate
-  reasoning: false
+  reasoning: true
   paraphrase_i: 0
 
 output:
@@ -20,10 +20,24 @@ output:
 dataset:
   percent_of_train_dataset: 0.9
   use_special_template: false
-  response_template: " ### Answer:"
-  instruction_prompt_template: '"### Human:"'
+  response_template: "### Answer:"
+  instruction_prompt_template: "### Human:"
   seed: 19
   shuffle: false
+
+# New testing configuration section
+testing:
+  only_test: false
+  test_model_path: null
+  use_test_split: true  # Whether to use the test split from training or all data
+  use_quantization: true  # Whether to use quantization for inference
+  use_chat_template: true  # Whether to use the chat template for formatting
+  max_new_tokens: 512
+  temperature: 0.1
+  top_p: 0.95
+  do_sample: true
+  num_beams: 1
+  repetition_penalty: 1.1
 
 training:
   num_train_epochs: 1
