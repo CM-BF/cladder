@@ -35,13 +35,17 @@ class CausalTrainer:
         # Setting up paths
         if self.cfg.testing.only_test:
             assert self.cfg.testing.test_model_path is not None
-            self.output_dir = Path(self.cfg.testing.test_model_path).parent
-            self.cfg = self.load_config_with_testing_override(self.output_dir / "config_dump.yaml", self.cfg.testing)
+            if Path(self.cfg.testing.test_model_path).exists():
+                self.output_dir = Path(self.cfg.testing.test_model_path).parent
+                self.cfg = self.load_config_with_testing_override(self.output_dir / "config_dump.yaml", self.cfg.testing)
+            else:
+                self.output_dir = Path.cwd()
         else:
             self.output_dir = Path.cwd()  # Hydra changes working directory
             # Save the config for reproducibility
             with open(self.output_dir / "config_dump.yaml", "w") as f:
                 f.write(OmegaConf.to_yaml(cfg))
+        print(OmegaConf.to_yaml(self.cfg))
         print(f"Working directory: {self.output_dir}")
 
     def train_sft(self):
@@ -49,8 +53,6 @@ class CausalTrainer:
         # Extract config values
         model_name = self.cfg.model.name
         new_model = self.cfg.model.new_model
-        reasoning = self.cfg.experiment.reasoning
-        ask_about = self.cfg.experiment.ask_about
         enable_cot = self.cfg.experiment.enable_cot
         enable_fewshot = self.cfg.experiment.enable_fewshot
         given_cot_until_step = self.cfg.experiment.given_cot_until_step
@@ -61,27 +63,26 @@ class CausalTrainer:
         # Create text interface for prompt composition
         text_interface = TextInterfaceForLLMs(
             str(write_out_file),
-            ask_about=ask_about,
+            ask_about=self.cfg.experiment.ask_about,
             enable_fewshot=enable_fewshot,
             enable_cot=enable_cot,
             given_cot_until_step=given_cot_until_step
         )
 
         # Load dataset
-        df_list = DataFileList(ask_about=ask_about)
-        data_file_obj = df_list.data_objs[0]
+
 
         # Run testing if enabled
         if self.cfg.testing.only_test:
-            self.test_model(data_file_obj, model_name, new_model, text_interface)
+            self.test_model(model_name, new_model, text_interface)
         else:
             # Process each dataset file
-            self._perform_sft(data_file_obj, model_name, reasoning, text_interface, new_model)
-            self.test_model(data_file_obj, model_name, new_model, text_interface)
+            self._perform_sft(model_name, text_interface, new_model)
+            self.test_model(model_name, new_model, text_interface)
 
 
 
-    def _perform_sft(self, data_file_obj, model_name, reasoning, text_interface, new_model):
+    def _perform_sft(self, model_name, text_interface, new_model):
         """Perform the actual SFT training for a given dataset"""
         # Extract configurations
         lora_config = self.cfg.lora
@@ -93,6 +94,7 @@ class CausalTrainer:
         device_map = {"": 0} if training_config.device_map == 0 else training_config.device_map
 
         # Prepare the dataset
+        data_file_obj = DataFileList(data_name=dataset_config.train_data, ask_about=self.cfg.experiment.ask_about).data_objs[0]
         train_dataset, eval_dataset = self._prepare_data(data_file_obj, text_interface)
 
         train_dataset, eval_dataset = map(partial(self.format_dataset, dataset_config=dataset_config), [train_dataset, eval_dataset])
@@ -204,7 +206,7 @@ class CausalTrainer:
             dataset = dataset.map(self._format_transform, desc="Formatting dataset to ChatML")
         return dataset
 
-    def test_model(self, data_file_obj, model_name, new_model_name, text_interface):
+    def test_model(self, model_name, new_model_name, text_interface):
         """Test the trained model on the test dataset and compute accuracy"""
         print("\n=== Starting model testing ===")
 
@@ -245,8 +247,10 @@ class CausalTrainer:
                 device_map=device_map,
                 trust_remote_code=self.cfg.model.trust_remote_code
             )
-
-        print(f"Active adapter: {model.active_adapter()}")
+        try:
+            print(f"Active adapter: {model.active_adapter()}")
+        except:
+            print("No active adapter: Base model")
         # Load tokenizer
         try:
             tokenizer = AutoTokenizer.from_pretrained(
@@ -262,8 +266,8 @@ class CausalTrainer:
 
         # Process each dataset file for testing
         # Prepare test data
-
-
+        data_file_obj = \
+        DataFileList(data_name=self.cfg.testing.test_data, ask_about=self.cfg.experiment.ask_about).data_objs[0]
         _, test_dataset = self._prepare_data(data_file_obj, text_interface)
         test_data = test_dataset.to_list()
 
@@ -501,7 +505,6 @@ class CausalTrainer:
 @hydra.main(config_path="conf", config_name="config", version_base="1.3")
 def main(cfg: DictConfig):
     """Main entry point for training with Hydra configuration"""
-    print(OmegaConf.to_yaml(cfg))
     trainer = CausalTrainer(cfg)
     trainer.train_sft()
 
