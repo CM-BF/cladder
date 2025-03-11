@@ -29,6 +29,7 @@ dataset:
 testing:
   only_test: false
   test_model_path: null
+  test_batch_size: 32
   use_test_split: true  # Whether to use the test split from training or all data
   use_quantization: true  # Whether to use quantization for inference
   use_chat_template: true  # Whether to use the chat template for formatting

@@ -267,7 +267,7 @@ class CausalTrainer:
         _, test_dataset = self._prepare_data(data_file_obj, text_interface)
         test_data = test_dataset.to_list()
 
-        batch_size = 32
+        batch_size = test_config.test_batch_size
 
         for i in tqdm(range(0, len(test_data), batch_size), desc="Testing batches"):
             batch = test_data[i:i + batch_size]
