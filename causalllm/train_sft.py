@@ -6,10 +6,12 @@ from typing import Literal, Any, List, TypedDict, Annotated, Dict, Tuple
 import re
 
 import hydra
+from efficiency.log import fread
 from omegaconf import DictConfig, OmegaConf
 import pandas as pd
 from itertools import product
 from datasets import Dataset
+from statsmodels.gam.tests.test_penalized import file_path
 from tqdm import tqdm
 
 import torch
@@ -25,6 +27,12 @@ from causalllm.data import DataFileList
 from causalllm.evaluate import Scorer
 from causalllm.prompt_utils import partial_replace, TextInterfaceForLLMs
 from causalllm.definitions import ROOT_PATH, missing_step, paraphrase_i
+
+import logging
+
+logging.basicConfig(level=logging.DEBUG)
+logging.getLogger('httpx').setLevel(logging.WARNING)
+logging.getLogger('httpcore').setLevel(logging.WARNING)
 
 
 class CausalTrainer:
@@ -69,8 +77,6 @@ class CausalTrainer:
             given_cot_until_step=given_cot_until_step
         )
 
-        # Load dataset
-
 
         # Run testing if enabled
         if self.cfg.testing.only_test:
@@ -94,8 +100,14 @@ class CausalTrainer:
         device_map = {"": 0} if training_config.device_map == 0 else training_config.device_map
 
         # Prepare the dataset
-        data_file_obj = DataFileList(data_name=dataset_config.train_data, ask_about=self.cfg.experiment.ask_about).data_objs[0]
-        train_dataset, eval_dataset = self._prepare_data(data_file_obj, text_interface)
+        # Load dataset
+        if self.cfg.dataset.anonymize == 'preprocess':
+            data = self._anonymize_data(dataset_config.train_data, self.cfg.dataset, text_interface)
+        else:
+            data = DataFileList(data_name=dataset_config.train_data, ask_about=self.cfg.experiment.ask_about).data_objs[0].data
+            text_interface.prepare_prompt_sft(data, reasoning=self.cfg.experiment.reasoning)
+            data = text_interface.data_in
+        train_dataset, eval_dataset = self._prepare_data(data)
 
         train_dataset, eval_dataset = map(partial(self.format_dataset, dataset_config=dataset_config), [train_dataset, eval_dataset])
 
@@ -196,14 +208,18 @@ class CausalTrainer:
             print(f"Model saved to {save_path}")
             tokenizer.save_pretrained(save_path)
 
-    def format_dataset(self, dataset, dataset_config):
+    def format_dataset(self, dataset, dataset_config, training=True):
         # "prompt" is a special column key for SFTTrainer's data preprocessing
-        dataset = dataset.rename_columns({"prompt": "instruction", "response": "output"})
-        other_columns = [i for i in dataset.column_names if i not in ["instruction", "output"]]
-        dataset = dataset.remove_columns(other_columns)
-        # Format dataset for model input
-        if not dataset_config.use_special_template:
-            dataset = dataset.map(self._format_transform, desc="Formatting dataset to ChatML")
+        if dataset_config.anonymize == 'preprocess':
+            dataset = dataset.rename_columns({"abstract_prompt": "instruction", "abstract_reasoning": "output"})
+        else:
+            dataset = dataset.rename_columns({"prompt": "instruction", "response": "output"})
+        if training:
+            other_columns = [i for i in dataset.column_names if i not in ["instruction", "output"]]
+            dataset = dataset.remove_columns(other_columns)
+            # Format dataset for model input
+            if not dataset_config.use_special_template:
+                dataset = dataset.map(self._format_transform, desc="Formatting dataset to ChatML")
         return dataset
 
     def test_model(self, model_name, new_model_name, text_interface):
@@ -213,12 +229,24 @@ class CausalTrainer:
         # Extract test config
         test_config = self.cfg.testing
 
+        # Process each dataset file for testing
+        # Prepare test data
+        if self.cfg.dataset.anonymize == 'preprocess':
+            data = self._anonymize_data(self.cfg.testing.test_data, self.cfg.dataset, text_interface)
+        else:
+            data = DataFileList(data_name=self.cfg.testing.test_data, ask_about=self.cfg.experiment.ask_about).data_objs[0].data
+            text_interface.prepare_prompt_sft(data, reasoning=self.cfg.experiment.reasoning)
+            data = text_interface.data_in
+        _, test_dataset = self._prepare_data(data)
+        test_dataset = self.format_dataset(test_dataset, dataset_config=self.cfg.dataset, training=False)
+        test_data = test_dataset.to_list()
+
+
         # Determine model path
         if test_config.only_test:
             model_path = test_config.test_model_path
         else:
             model_path = self.output_dir / new_model_name
-
 
         # Load the model
         device_map = "auto" if torch.cuda.is_available() else None
@@ -264,58 +292,49 @@ class CausalTrainer:
             )
         tokenizer.padding_side = 'left'
 
-        # Process each dataset file for testing
-        # Prepare test data
-        data_file_obj = \
-        DataFileList(data_name=self.cfg.testing.test_data, ask_about=self.cfg.experiment.ask_about).data_objs[0]
-        _, test_dataset = self._prepare_data(data_file_obj, text_interface)
-        test_data = test_dataset.to_list()
-
         batch_size = test_config.test_batch_size
 
-        for i in tqdm(range(0, len(test_data), batch_size), desc="Testing batches"):
-            batch = test_data[i:i + batch_size]
-            batch_queries = [item["prompt"] for item in batch]
-
-            # Generate responses for the batch
-            batch_responses = self._generate_batch_responses(
-                model, tokenizer, batch_queries, test_config
-            )
-
-            # Extract answers from responses
-            for j, response in enumerate(batch_responses):
-                pred = self._extract_answer(response)
-                test_data[i + j]['pred'] = pred
-
-            # Print sample for debugging
-            if i % (5 * batch_size) == 0 and batch:
-                print(
-                    f"Sample Query: {batch_queries[0]}\n\nResponse: {batch_responses[0]}\n\nExtracted Answer: {test_data[i]['pred']}\n\nExpected Answer: {test_data[i]['truth']}\n\n")
-
-        # for i, datum in tqdm(enumerate(test_data), desc="Testing"):
-        #     query = datum["prompt"]
+        # for i in tqdm(range(0, len(test_data), batch_size), desc="Testing batches"):
+        #     batch = test_data[i:i + batch_size]
+        #     batch_queries = [item["instruction"] for item in batch]
         #
-        #     # Generate response using the model
-        #     response = self._generate_model_response(model, tokenizer, query, test_config)
+        #     # Generate responses for the batch
+        #     batch_responses = self._generate_batch_responses(
+        #         model, tokenizer, batch_queries, test_config
+        #     )
         #
-        #     # Extract the answer
-        #     pred = self._extract_answer(response)
-        #     datum['pred'] = pred
-        #     if i % 100 == 0:
-        #         print(f"Query: {query}\n\nResponse: {response}\n\nExtracted Answer: {pred}\n\nExpected Answer: {datum['truth']}\n\n")
-
-        test_df = pd.DataFrame(test_data)
-        test_df.to_csv(text_interface.save_path, index=False)
-
-        text_interface.response_processor(model_version=f"{new_model_name}")
+        #     # Extract answers from responses
+        #     for j, response in enumerate(batch_responses):
+        #         pred = self._extract_answer(response)
+        #         test_data[i + j]['pred'] = pred
+        #
+        #     # Print sample for debugging
+        #     if i % (5 * batch_size) == 0 and batch:
+        #         print(
+        #             f"Sample Query: {batch_queries[0]}\n\nResponse: {batch_responses[0]}\n\nExtracted Answer: {test_data[i]['pred']}\n\nExpected Answer: {test_data[i]['truth']}\n\n")
+        #
+        # # for i, datum in tqdm(enumerate(test_data), desc="Testing"):
+        # #     query = datum["prompt"]
+        # #
+        # #     # Generate response using the model
+        # #     response = self._generate_model_response(model, tokenizer, query, test_config)
+        # #
+        # #     # Extract the answer
+        # #     pred = self._extract_answer(response)
+        # #     datum['pred'] = pred
+        # #     if i % 100 == 0:
+        # #         print(f"Query: {query}\n\nResponse: {response}\n\nExtracted Answer: {pred}\n\nExpected Answer: {datum['truth']}\n\n")
+        #
+        # test_df = pd.DataFrame(test_data)
+        # test_df.to_csv(text_interface.save_path, index=False)
+        #
+        # text_interface.response_processor(model_version=f"{new_model_name}")
 
         scorer = Scorer([text_interface.save_path], ask_about='answer', save_perfomance=text_interface.save_path)
 
-    def _prepare_data(self, data_file_obj, text_interface):
+    def _prepare_data(self, data):
         """Prepare data for testing"""
         # Use the same preprocessing as for training
-        text_interface.prepare_prompt_sft(data_file_obj.data, reasoning=self.cfg.experiment.reasoning)
-        data = text_interface.data_in
         all_samples = list(map(lambda x: {k: v for k, v in x.items() if k != 'old'}, data))
 
         # Filter based on test split if needed
@@ -329,6 +348,120 @@ class CausalTrainer:
         test_dataset = split_dataset["test"]
 
         return train_dataset, test_dataset
+
+    def _anonymize_data(self, data_name, dataset_config, text_interface):
+        from copy import deepcopy
+        import json
+        import random
+        import asyncio
+        from tqdm.asyncio import tqdm_asyncio
+        from langchain.chat_models import init_chat_model
+        from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
+        from pathlib import Path
+
+        from causalllm.structured_data_template import Anonymizer
+
+        file_path = f'{ROOT_PATH}/data/{data_name}_{dataset_config.anonymizer_version}'
+        data_file = Path(file_path + "_abstract.json")
+        shuffled_file = Path(file_path + "_abstract_shuffled.json")
+
+        if shuffled_file.exists():
+            json_data = shuffled_file.read_text()
+            data = json.loads(json_data)
+            return data
+
+        models = {'gpt-4o-mini': init_chat_model("gpt-4o-mini", model_provider="openai"),
+                  'gpt-4o': init_chat_model("gpt-4o", model_provider="openai"),
+                  'o1': init_chat_model("o1", model_provider="openai"),
+                  'o1-mini': init_chat_model("o1-mini", model_provider="openai"),
+                  'o3-mini': init_chat_model("o3-mini", model_provider="openai"),
+                  'gpt-4': init_chat_model("gpt-4", model_provider="openai"),
+                  'gpt-3.5-turbo': init_chat_model("gpt-3.5-turbo", model_provider="openai")}
+
+        from efficiency.log import fread, show_var, fwrite, print_df_value_count
+        data_file_obj = DataFileList(data_name=data_name, shuffle=False, ask_about=self.cfg.experiment.ask_about).data_objs[0]
+        text_interface.prepare_prompt_sft(data_file_obj.data, reasoning=self.cfg.experiment.reasoning)
+
+        data = text_interface.data_in
+
+        # Setup agent with structured output
+        agent = models[dataset_config.anonymizer_version].with_structured_output(schema=Anonymizer).with_retry()
+
+        # Load messages
+        system_message = Path(f'{ROOT_PATH}/causalllm/agents/anonymize/system.txt').read_text()
+        user_message = Path(f'{ROOT_PATH}/causalllm/agents/anonymize/user.txt').read_text()
+        example_message = Path(f'{ROOT_PATH}/causalllm/agents/anonymize/example.txt')
+        example = json.loads(example_message.read_text())
+
+        pure_example = deepcopy(example)
+        pure_example.pop('raw_prompt')
+        pure_example.pop('response')
+
+        semaphore = asyncio.Semaphore(100)
+        async def process_datum(datum):
+            async with semaphore:
+                messages = [
+                    SystemMessage(system_message),
+                    HumanMessage(partial_replace(user_message, {
+                        'prompt': example['raw_prompt'],
+                        'response': example['response'],
+                    })),
+                    AIMessage(content=json.dumps(pure_example, indent=2)),
+                    HumanMessage(partial_replace(user_message, {
+                        'prompt': datum['raw_prompt'],
+                        'response': datum['response'],
+                    })),
+                ]
+
+                invalid = True
+                retry = 0
+                while invalid:
+                    if retry > 20:
+                        print(f'Warning: failed 20 times for datum')
+                        break
+                    try:
+                        response = await agent.ainvoke(messages)
+                        retry += 1
+                        invalid = False
+                        for v2n in response.variable2name:
+                            if v2n.name in response.background_question or v2n.name in response.reasoning:
+                                invalid = True
+                                break
+                    except Exception as e:
+                        print(f"Error processing datum: {e}")
+                        retry += 1
+                        await asyncio.sleep(1)  # Add small delay before retry
+
+                result = datum.copy()
+                var2name_map = {i.name: i.dict() for i in response.variable2name}
+                result.update({
+                    'abstract_raw_prompt': response.background_question,
+                    'abstract_prompt':  f'{response.background_question}\n\n{datum["query_suffix"]}',
+                    'abstract_reasoning': response.reasoning,
+                    'var2name_map': var2name_map,
+                })
+                return result
+
+        # Process data in parallel with asyncio
+        async def process_all_data():
+            # Create tasks for all data items
+            tasks = [process_datum(datum) for datum in data]
+            # Gather results
+            processed_data = await tqdm_asyncio.gather(*tasks, desc='Data abstracting', total=len(tasks))
+            return processed_data
+
+        # Run the processing
+        processed_data = asyncio.run(process_all_data())
+
+        # Save the results
+        data_file.write_text(json.dumps(processed_data, indent=4))
+
+        # Create shuffled version
+        shuffled_data = deepcopy(processed_data)
+        random.shuffle(shuffled_data)
+        shuffled_file.write_text(json.dumps(shuffled_data, indent=4))
+
+        return shuffled_data
 
     def _generate_model_response(self, model, tokenizer, instruction, test_config):
         """Generate a response from the model given an instruction"""

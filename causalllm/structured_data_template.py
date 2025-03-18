@@ -16,6 +16,19 @@ class SCGString(BaseModel):
     scg_string: str = Field(None, description="The solution causal graph.")
     # short_scg_string: str = Field(None, description="The solution causal graph where for nodes, we omit the long descriptions and only keep the subtask's short descriptions.")
 
+
+class Variable2Name(BaseModel):
+    variable: Optional[str] = Field(None, description="The variable symbol")
+    name: Optional[str] = Field(None, description="The original name")
+    set_description: Optional[str] = Field(None, description="The description of the variable=1")
+    unset_description: Optional[str] = Field(None, description="The description of the variable=0")
+
+class Anonymizer(BaseModel):
+    variable2name: List[Variable2Name]
+    background_question: str = Field(None, description="The anonymized background and question descriptions.")
+    reasoning: str = Field(None, description="The anonymized reasoning steps.")
+    # plain_reasoning: str = Field(None, description="The reasoning steps with real event/variable names.")
+
 class Verifier(BaseModel):
     valid: bool = Field(None, description="Whether the solution satisfies all the requirements.")
     feedback: Optional[str] = Field(None, description="The feedback message for the user if the solution does not satisfy any of the requirements.")

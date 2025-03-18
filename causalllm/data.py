@@ -2,7 +2,7 @@ from causalllm.definitions import ROOT_PATH, paraphrase_i
 
 
 class DataFileList:
-    def __init__(self, data_name = 'cladder-v1/cladder-v1-q-balanced', ask_about=None):
+    def __init__(self, data_name = 'cladder-v1/cladder-v1-q-balanced', shuffle=True, ask_about=None):
         from glob import glob
 
         file_pattern = f'{ROOT_PATH}/data/{data_name}.json'
@@ -15,7 +15,7 @@ class DataFileList:
             sys.exit()
         data_objs = []
         for file in data_files:
-            data_obj = DataFile(file, ask_about=ask_about)
+            data_obj = DataFile(file, shuffle=shuffle, ask_about=ask_about)
             data_objs.append(data_obj)
         self.data_objs = data_objs
 
@@ -23,11 +23,11 @@ class DataFileList:
 class DataFile:
     metadata_keys = ['sensical', 'query_type', 'rung', 'phenomenon', 'simpson']
 
-    def __init__(self, file, len=None, ask_about=None):
+    def __init__(self, file, shuffle=True, len=None, ask_about=None):
         self.read_in_file = file
         self.file_shuffled = file.replace('.json', '_rand.json')
 
-        self.data = self.load_data(file, ask_about=ask_about)
+        self.data = self.load_data(file, shuffle=shuffle, ask_about=ask_about)
         self.data = self.data[:len]
 
     def get_ids_to_exclude(self, file=f'{ROOT_PATH}/data/updated_data_ids_not_ready.txt'):

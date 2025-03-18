@@ -1,9 +1,29 @@
+import json
 import re
 import warnings
 from collections import defaultdict
 
 from causalbenchmark.eval.data_stats_old import enable_cot
 from causalllm.definitions import ROOT_PATH, missing_step
+
+from langchain.chat_models import init_chat_model
+from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
+from langchain_core.prompts import ChatPromptTemplate
+from langgraph.graph import END, StateGraph, START
+from langchain_core.messages import AnyMessage
+from langchain_core.runnables.config import RunnableConfig
+from pathlib import Path
+from tqdm import tqdm
+
+from causalllm.structured_data_template import Anonymizer
+
+models = {'gpt-4o-mini': init_chat_model("gpt-4o-mini", model_provider="openai"),
+          'gpt-4o': init_chat_model("gpt-4o", model_provider="openai"),
+          'o1': init_chat_model("o1", model_provider="openai"),
+          'o1-mini': init_chat_model("o1-mini", model_provider="openai"),
+          'o3-mini': init_chat_model("o3-mini", model_provider="openai"),
+          'gpt-4': init_chat_model("gpt-4", model_provider="openai"),
+          'gpt-3.5-turbo': init_chat_model("gpt-3.5-turbo", model_provider="openai")}
 
 
 def partial_replace(template, replacements):
@@ -255,11 +275,157 @@ class TextInterfaceForLLMs:
             # del datum['raw_prompt'], datum['raw_prompt_without_q'], datum['old']
             datum.update({
                 'prompt': prompt,
+                'query_suffix': default_query_suffix,
                 'response': response,
                 'truth_norm': truth_norm,
             })
 
         return data
+
+    # def anonymize_prompt_reasoning(self, file_path, reasoning=False):
+    #     data_file = Path(file_path + "_abstract.json")
+    #     shuffled_file = Path(file_path + "_abstract_shuffled.json")
+    #     from copy import deepcopy
+    #     data = self.data_in
+    #     agent = models['gpt-4o'].with_structured_output(schema=Anonymizer).with_retry()
+    #     system_message = Path(f'{ROOT_PATH}/causalllm/agents/anonymize/system.txt').read_text()
+    #     user_message = Path(f'{ROOT_PATH}/causalllm/agents/anonymize/user.txt').read_text()
+    #     example_message = Path(f'{ROOT_PATH}/causalllm/agents/anonymize/example.txt')
+    #     example = json.loads(example_message.read_text())
+    #     import copy
+    #     pure_example = deepcopy(example)
+    #     pure_example.pop('raw_prompt')
+    #     pure_example.pop('response')
+    #     for i, datum in tqdm(enumerate(data)):
+    #         messages = [
+    #             SystemMessage(system_message),
+    #             HumanMessage(partial_replace(user_message, {
+    #                 'prompt': example['raw_prompt'],
+    #                 'response': example['response'],
+    #             })),
+    #             AIMessage(content=json.dumps(pure_example, indent=2)),
+    #             HumanMessage(partial_replace(user_message, {
+    #                 'prompt': datum['raw_prompt'],
+    #                 'response': datum['response'],
+    #             })),
+    #         ]
+    #
+    #         invalid = True
+    #         retry = 0
+    #         while invalid:
+    #             if retry > 5:
+    #                 print('Warning: failed 5 times')
+    #                 break
+    #             response = agent.invoke(messages)
+    #             retry += 1
+    #             invalid = False
+    #             for v2n in response.variable2name:
+    #                 if v2n.name in response.background_question or v2n.name in response.reasoning:
+    #                     invalid = True
+    #                     break
+    #         datum.update({
+    #             'abstract_prompt': response.background_question,
+    #             'abstract_reasoning': response.reasoning,
+    #             'var2name_map': {i.name: i.dict() for i in response.variable2name},
+    #         })
+    #
+    #     data_file.write_text(json.dumps(data, indent=4))
+    #     import random
+    #     random.shuffle(data)
+    #     shuffled_file.write_text(json.dumps(data, indent=4))
+    #     return data
+
+    def anonymize_prompt_reasoning(self, file_path, reasoning=False):
+        from copy import deepcopy
+        import json
+        import random
+        import asyncio
+        from tqdm.asyncio import tqdm_asyncio
+
+        data_file = Path(file_path + "_abstract.json")
+        shuffled_file = Path(file_path + "_abstract_shuffled.json")
+        if shuffled_file.exists():
+            json_data = shuffled_file.read_text()
+            data = json.loads(json_data)
+            return data
+
+        data = self.data_in
+
+        # Setup agent with structured output
+        agent = models['gpt-4o'].with_structured_output(schema=Anonymizer).with_retry()
+
+        # Load messages
+        system_message = Path(f'{ROOT_PATH}/causalllm/agents/anonymize/system.txt').read_text()
+        user_message = Path(f'{ROOT_PATH}/causalllm/agents/anonymize/user.txt').read_text()
+        example_message = Path(f'{ROOT_PATH}/causalllm/agents/anonymize/example.txt')
+        example = json.loads(example_message.read_text())
+
+        pure_example = deepcopy(example)
+        pure_example.pop('raw_prompt')
+        pure_example.pop('response')
+
+        async def process_datum(datum):
+            messages = [
+                SystemMessage(system_message),
+                HumanMessage(partial_replace(user_message, {
+                    'prompt': example['raw_prompt'],
+                    'response': example['response'],
+                })),
+                AIMessage(content=json.dumps(pure_example, indent=2)),
+                HumanMessage(partial_replace(user_message, {
+                    'prompt': datum['raw_prompt'],
+                    'response': datum['response'],
+                })),
+            ]
+
+            invalid = True
+            retry = 0
+            while invalid:
+                if retry > 5:
+                    print(f'Warning: failed 5 times for datum')
+                    break
+                try:
+                    response = await agent.ainvoke(messages)
+                    retry += 1
+                    invalid = False
+                    for v2n in response.variable2name:
+                        if v2n.name in response.background_question or v2n.name in response.reasoning:
+                            invalid = True
+                            break
+                except Exception as e:
+                    print(f"Error processing datum: {e}")
+                    retry += 1
+                    await asyncio.sleep(1)  # Add small delay before retry
+
+            result = datum.copy()
+            result.update({
+                'abstract_prompt': response.background_question if not invalid else "",
+                'abstract_reasoning': response.reasoning if not invalid else "",
+                'var2name_map': {i.name: i.dict() for i in response.variable2name} if not invalid else {},
+            })
+            return result
+
+        # Process data in parallel with asyncio
+        async def process_all_data():
+            # Create tasks for all data items
+            tasks = [asyncio.create_task(process_datum(datum)) for datum in data]
+            # Gather results
+            processed_data = await tqdm_asyncio.gather(*tasks, desc='Data abstracting', total=len(tasks))
+            return processed_data
+
+        # Run the processing
+        processed_data = asyncio.run(process_all_data())
+
+        # Save the results
+        data_file.write_text(json.dumps(processed_data, indent=4))
+
+        # Create shuffled version
+        shuffled_data = deepcopy(processed_data)
+        random.shuffle(shuffled_data)
+        shuffled_file.write_text(json.dumps(shuffled_data, indent=4))
+
+        return processed_data
+
 
     def convert_to_norm(self, value):
         invalid = -1
