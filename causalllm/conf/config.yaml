@@ -19,20 +19,25 @@ output:
 
 dataset:
   train_data: "cladder-v1/cladder-v1-q-commonsense"
-  percent_of_train_dataset: 0.9
+  percent_of_train_dataset: 0.005
+  percent_of_test_dataset: 0.1
   use_special_template: false
   response_template: "### Answer:"
   instruction_prompt_template: "### Human:"
   seed: 19
-  anonymize: preprocess
+  anonymize: false
   anonymizer_version: gpt-4o-mini
   shuffle: false
 
 # New testing configuration section
 testing:
   only_test: false
+  check_score: false
   test_model_path: null
-  test_data: "cladder-v1/cladder-v1-q-noncommonsense"
+  test_data:
+    - "cladder-v1/cladder-v1-q-commonsense"
+    - "cladder-v1/cladder-v1-q-anticommonsense"
+    - "cladder-v1/cladder-v1-q-noncommonsense"
   test_batch_size: 32
   use_test_split: true  # Whether to use the test split from training or all data
   use_quantization: true  # Whether to use quantization for inference

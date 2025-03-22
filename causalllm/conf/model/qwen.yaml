@@ -1,4 +1,4 @@
 # conf/model/qwen.yaml
 name: "Qwen/Qwen2.5-3B-Instruct"
-new_model: "QWen-CLadder-agent"
+new_model: QWen-R${experiment.reasoning}-Abs${dataset.anonymize}-DP${dataset.percent_of_train_dataset}-EP${training.num_train_epochs}
 trust_remote_code: true

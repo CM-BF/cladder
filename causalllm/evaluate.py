@@ -71,7 +71,7 @@ class Scorer:
         return df
 
     def truth_pred_scorer(self, df, ask_about):
-        df.drop(['prompt', 'question_id'], axis=1, inplace=True)
+        # df.drop(['prompt', 'question_id'], axis=1, inplace=True)
 
         # - 1. Get scores: Concat calculated scores to the df with customized score function -
         df = self.apply_score_func(df, ask_about)

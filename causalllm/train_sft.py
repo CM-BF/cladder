@@ -6,6 +6,7 @@ from typing import Literal, Any, List, TypedDict, Annotated, Dict, Tuple
 import re
 
 import hydra
+import wandb
 from efficiency.log import fread
 from omegaconf import DictConfig, OmegaConf
 import pandas as pd
@@ -66,7 +67,8 @@ class CausalTrainer:
         given_cot_until_step = self.cfg.experiment.given_cot_until_step
 
         # Setup output files
-        write_out_file = self.output_dir / 'output.csv'
+        test_data_name = Path(self.cfg.testing.test_data[0]).parts[-1]
+        write_out_file = self.output_dir / f'{test_data_name}_output.csv'
 
         # Create text interface for prompt composition
         text_interface = TextInterfaceForLLMs(
@@ -79,12 +81,15 @@ class CausalTrainer:
 
 
         # Run testing if enabled
-        if self.cfg.testing.only_test:
-            self.test_model(model_name, new_model, text_interface)
-        else:
+        if not self.cfg.testing.only_test:
             # Process each dataset file
             self._perform_sft(model_name, text_interface, new_model)
-            self.test_model(model_name, new_model, text_interface)
+
+        scores = {}
+        for test_data in self.cfg.testing.test_data:
+            score = self.test_model(model_name, new_model, test_data)
+            scores[test_data] = score
+        wandb.log({"scores": scores})
 
 
 
@@ -101,7 +106,7 @@ class CausalTrainer:
 
         # Prepare the dataset
         # Load dataset
-        if self.cfg.dataset.anonymize == 'preprocess':
+        if self.cfg.dataset.anonymize:
             data = self._anonymize_data(dataset_config.train_data, self.cfg.dataset, text_interface)
         else:
             data = DataFileList(data_name=dataset_config.train_data, ask_about=self.cfg.experiment.ask_about).data_objs[0].data
@@ -210,7 +215,7 @@ class CausalTrainer:
 
     def format_dataset(self, dataset, dataset_config, training=True):
         # "prompt" is a special column key for SFTTrainer's data preprocessing
-        if dataset_config.anonymize == 'preprocess':
+        if dataset_config.anonymize:
             dataset = dataset.rename_columns({"abstract_prompt": "instruction", "abstract_reasoning": "output"})
         else:
             dataset = dataset.rename_columns({"prompt": "instruction", "response": "output"})
@@ -222,19 +227,35 @@ class CausalTrainer:
                 dataset = dataset.map(self._format_transform, desc="Formatting dataset to ChatML")
         return dataset
 
-    def test_model(self, model_name, new_model_name, text_interface):
+    def test_model(self, model_name, new_model_name, test_data):
         """Test the trained model on the test dataset and compute accuracy"""
-        print("\n=== Starting model testing ===")
+        print(f"\n=== Starting model testing on {test_data}===")
+
+        test_data_name = Path(test_data).parts[-1]
+        write_out_file = self.output_dir / f'{test_data_name}_output.csv'
+
+        # Create text interface for prompt composition
+        text_interface = TextInterfaceForLLMs(
+            str(write_out_file),
+            ask_about=self.cfg.experiment.ask_about,
+            enable_fewshot=self.cfg.experiment.enable_cot,
+            enable_cot=self.cfg.experiment.enable_fewshot,
+            given_cot_until_step=self.cfg.experiment.given_cot_until_step
+        )
+
+        if self.cfg.testing.check_score:
+            score = pd.read_csv(text_interface.save_path).loc[0, "score"]
+            return score
 
         # Extract test config
         test_config = self.cfg.testing
 
         # Process each dataset file for testing
         # Prepare test data
-        if self.cfg.dataset.anonymize == 'preprocess':
-            data = self._anonymize_data(self.cfg.testing.test_data, self.cfg.dataset, text_interface)
+        if self.cfg.dataset.anonymize:
+            data = self._anonymize_data(test_data, self.cfg.dataset, text_interface)
         else:
-            data = DataFileList(data_name=self.cfg.testing.test_data, ask_about=self.cfg.experiment.ask_about).data_objs[0].data
+            data = DataFileList(data_name=test_data, ask_about=self.cfg.experiment.ask_about).data_objs[0].data
             text_interface.prepare_prompt_sft(data, reasoning=self.cfg.experiment.reasoning)
             data = text_interface.data_in
         _, test_dataset = self._prepare_data(data)
@@ -294,43 +315,46 @@ class CausalTrainer:
 
         batch_size = test_config.test_batch_size
 
-        # for i in tqdm(range(0, len(test_data), batch_size), desc="Testing batches"):
-        #     batch = test_data[i:i + batch_size]
-        #     batch_queries = [item["instruction"] for item in batch]
-        #
-        #     # Generate responses for the batch
-        #     batch_responses = self._generate_batch_responses(
-        #         model, tokenizer, batch_queries, test_config
-        #     )
-        #
-        #     # Extract answers from responses
-        #     for j, response in enumerate(batch_responses):
-        #         pred = self._extract_answer(response)
-        #         test_data[i + j]['pred'] = pred
-        #
-        #     # Print sample for debugging
-        #     if i % (5 * batch_size) == 0 and batch:
-        #         print(
-        #             f"Sample Query: {batch_queries[0]}\n\nResponse: {batch_responses[0]}\n\nExtracted Answer: {test_data[i]['pred']}\n\nExpected Answer: {test_data[i]['truth']}\n\n")
-        #
-        # # for i, datum in tqdm(enumerate(test_data), desc="Testing"):
-        # #     query = datum["prompt"]
-        # #
-        # #     # Generate response using the model
-        # #     response = self._generate_model_response(model, tokenizer, query, test_config)
-        # #
-        # #     # Extract the answer
-        # #     pred = self._extract_answer(response)
-        # #     datum['pred'] = pred
-        # #     if i % 100 == 0:
-        # #         print(f"Query: {query}\n\nResponse: {response}\n\nExtracted Answer: {pred}\n\nExpected Answer: {datum['truth']}\n\n")
-        #
-        # test_df = pd.DataFrame(test_data)
-        # test_df.to_csv(text_interface.save_path, index=False)
-        #
-        # text_interface.response_processor(model_version=f"{new_model_name}")
+        for i in tqdm(range(0, len(test_data), batch_size), desc="Testing batches"):
+            batch = test_data[i:i + batch_size]
+            batch_queries = [item["instruction"] for item in batch]
 
-        scorer = Scorer([text_interface.save_path], ask_about='answer', save_perfomance=text_interface.save_path)
+            # Generate responses for the batch
+            batch_responses = self._generate_batch_responses(
+                model, tokenizer, batch_queries, test_config
+            )
+
+            # Extract answers from responses
+            for j, response in enumerate(batch_responses):
+                pred = self._extract_answer(response)
+                test_data[i + j]['pred_response'] = response
+                test_data[i + j]['pred'] = pred
+
+            # Print sample for debugging
+            if i % (5 * batch_size) == 0 and batch:
+                print(
+                    f"Sample Query: {batch_queries[0]}\n\nResponse: {batch_responses[0]}\n\nExtracted Answer: {test_data[i]['pred']}\n\nExpected Answer: {test_data[i]['truth']}\n\n")
+
+        # for i, datum in tqdm(enumerate(test_data), desc="Testing"):
+        #     query = datum["prompt"]
+        #
+        #     # Generate response using the model
+        #     response = self._generate_model_response(model, tokenizer, query, test_config)
+        #
+        #     # Extract the answer
+        #     pred = self._extract_answer(response)
+        #     datum['pred'] = pred
+        #     if i % 100 == 0:
+        #         print(f"Query: {query}\n\nResponse: {response}\n\nExtracted Answer: {pred}\n\nExpected Answer: {datum['truth']}\n\n")
+
+        test_df = pd.DataFrame(test_data)
+        test_df.to_csv(text_interface.save_path, index=False)
+
+        text_interface.response_processor(model_version=f"{new_model_name}")
+
+        Scorer([text_interface.save_path], ask_about='answer', save_perfomance=text_interface.save_path)
+        score = pd.read_csv(text_interface.save_path).loc[0, "score"]
+        return score
 
     def _prepare_data(self, data):
         """Prepare data for testing"""
@@ -340,12 +364,21 @@ class CausalTrainer:
         # Filter based on test split if needed
         dataset = Dataset.from_list(all_samples)
         split_dataset = dataset.train_test_split(
-            train_size=self.cfg.dataset.percent_of_train_dataset,
+            train_size=1 - self.cfg.dataset.percent_of_test_dataset,
+            # train_size=self.cfg.dataset.percent_of_train_dataset,
             seed=self.cfg.dataset.seed,
             shuffle=self.cfg.dataset.shuffle
         )
-        train_dataset = split_dataset["train"]
+        train_eval_dataset = split_dataset["train"]
+        # train_dataset = split_dataset["train"]
         test_dataset = split_dataset["test"]
+        split_train_eval_dataset = train_eval_dataset.train_test_split(
+            train_size=self.cfg.dataset.percent_of_train_dataset / (1 - self.cfg.dataset.percent_of_test_dataset),
+            seed=self.cfg.dataset.seed,
+            shuffle=self.cfg.dataset.shuffle
+        )
+        train_dataset = split_train_eval_dataset["train"]
+
 
         return train_dataset, test_dataset
 
@@ -361,9 +394,10 @@ class CausalTrainer:
 
         from causalllm.structured_data_template import Anonymizer
 
-        file_path = f'{ROOT_PATH}/data/{data_name}_{dataset_config.anonymizer_version}'
+        file_path = f'{ROOT_PATH}/data/{data_name}_{dataset_config.anonymizer_version}_2ex'
         data_file = Path(file_path + "_abstract.json")
         shuffled_file = Path(file_path + "_abstract_shuffled.json")
+        invalid_data_file = Path(file_path + "_abstract_invalid.json")
 
         if shuffled_file.exists():
             json_data = shuffled_file.read_text()
@@ -394,24 +428,30 @@ class CausalTrainer:
         example = json.loads(example_message.read_text())
 
         pure_example = deepcopy(example)
-        pure_example.pop('raw_prompt')
-        pure_example.pop('response')
+        for i in range(len(pure_example)):
+            pure_example[i].pop('raw_prompt')
+            pure_example[i].pop('response')
 
         semaphore = asyncio.Semaphore(100)
         async def process_datum(datum):
             async with semaphore:
                 messages = [
                     SystemMessage(system_message),
-                    HumanMessage(partial_replace(user_message, {
-                        'prompt': example['raw_prompt'],
-                        'response': example['response'],
-                    })),
-                    AIMessage(content=json.dumps(pure_example, indent=2)),
+                ]
+                for i in range(len(example)):
+                    messages += [
+                        HumanMessage(partial_replace(user_message, {
+                            'prompt': example[i]['raw_prompt'],
+                            'response': example[i]['response'],
+                        })),
+                        AIMessage(content=json.dumps(pure_example[i], indent=2)),
+                    ]
+                messages.append(
                     HumanMessage(partial_replace(user_message, {
                         'prompt': datum['raw_prompt'],
                         'response': datum['response'],
                     })),
-                ]
+                )
 
                 invalid = True
                 retry = 0
@@ -424,7 +464,7 @@ class CausalTrainer:
                         retry += 1
                         invalid = False
                         for v2n in response.variable2name:
-                            if v2n.name in response.background_question or v2n.name in response.reasoning:
+                            if v2n.name not in ['age', 'treatment'] and (v2n.name in response.background_question or v2n.name in response.reasoning):
                                 invalid = True
                                 break
                     except Exception as e:
@@ -439,6 +479,7 @@ class CausalTrainer:
                     'abstract_prompt':  f'{response.background_question}\n\n{datum["query_suffix"]}',
                     'abstract_reasoning': response.reasoning,
                     'var2name_map': var2name_map,
+                    'abstract_valid': not invalid,
                 })
                 return result
 
@@ -452,6 +493,14 @@ class CausalTrainer:
 
         # Run the processing
         processed_data = asyncio.run(process_all_data())
+
+
+        invalid_data = [datum for datum in processed_data if not datum['abstract_valid']]
+        invalid_count = len(invalid_data)
+        print(f"Invalid data ratio: {invalid_count / len(processed_data):.2%}")
+
+        # Save invalid data
+        invalid_data_file.write_text(json.dumps(invalid_data, indent=4))
 
         # Save the results
         data_file.write_text(json.dumps(processed_data, indent=4))
