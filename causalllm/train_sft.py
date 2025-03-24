@@ -88,8 +88,11 @@ class CausalTrainer:
         scores = {}
         for test_data in self.cfg.testing.test_data:
             score = self.test_model(model_name, new_model, test_data)
-            scores[test_data] = score
-        wandb.log({"scores": scores})
+            scores[Path(test_data).parts[-1]] = score
+        wandb.log(scores)
+        for test_name, score in scores.items():
+            wandb.run.summary[f'final_score_of_{test_name}'] = score
+            print(f"Final score of {test_name}: {score}")
 
 
 
