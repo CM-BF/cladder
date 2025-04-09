@@ -9,11 +9,11 @@ parameters:
   'dataset.anonymize':
     values: [True, False]
   'dataset.percent_of_train_dataset':
-    values: [0.01, 0.02, 0.05]
+    values: [0.001, 0.005, 0.01, 0.02, 0.05]
   'training.num_train_epochs':
-    values: [1, 2, 4, 8, 16, 32]
+    values: [1, 2, 4, 8, 16, 32, 64]
   'training.learning_rate':
-    values: [1.5e-4, 3e-4]
+    values: [1.5e-4, 3e-4, 6e-4]
 command:
   - ${env}
   - ROOT_PATH=/data/shurui.gui/Projects/cladder
