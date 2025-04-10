@@ -26,7 +26,7 @@ from trl import SFTTrainer, DataCollatorForCompletionOnlyLM, SFTConfig
 
 from causalllm.data import DataFileList
 from causalllm.evaluate import Scorer
-from causalllm.prompt_utils import partial_replace, TextInterfaceForLLMs
+from causalllm.prompt_utils import partial_replace, CladderTextInterface, ProntoQATextInterface
 from causalllm.definitions import ROOT_PATH, missing_step, paraphrase_i
 
 import logging
@@ -71,13 +71,22 @@ class CausalTrainer:
         write_out_file = self.output_dir / f'{test_data_name}_output.csv'
 
         # Create text interface for prompt composition
-        text_interface = TextInterfaceForLLMs(
-            str(write_out_file),
-            ask_about=self.cfg.experiment.ask_about,
-            enable_fewshot=enable_fewshot,
-            enable_cot=enable_cot,
-            given_cot_until_step=given_cot_until_step
-        )
+        if self.cfg.dataset.name == 'cladder':
+            text_interface = CladderTextInterface(
+                str(write_out_file),
+                ask_about=self.cfg.experiment.ask_about,
+                enable_fewshot=enable_fewshot,
+                enable_cot=enable_cot,
+                given_cot_until_step=given_cot_until_step
+            )
+        elif self.cfg.dataset.name == 'prontoqa':
+            text_interface = ProntoQATextInterface(
+                str(write_out_file),
+                ask_about=self.cfg.experiment.ask_about,
+                enable_fewshot=enable_fewshot,
+                enable_cot=enable_cot,
+                given_cot_until_step=given_cot_until_step
+            )
 
 
         # Run testing if enabled
@@ -89,9 +98,12 @@ class CausalTrainer:
         for test_data in self.cfg.testing.test_data:
             score = self.test_model(model_name, new_model, test_data)
             scores[Path(test_data).parts[-1]] = score
-        wandb.log(scores)
+        if not self.cfg.testing.only_test:
+            wandb.log(scores)
+            for test_name, score in scores.items():
+                wandb.run.summary[f'final_score_of_{test_name}'] = score
+
         for test_name, score in scores.items():
-            wandb.run.summary[f'final_score_of_{test_name}'] = score
             print(f"Final score of {test_name}: {score}")
 
 
@@ -109,12 +121,7 @@ class CausalTrainer:
 
         # Prepare the dataset
         # Load dataset
-        if self.cfg.dataset.anonymize:
-            data = self._anonymize_data(dataset_config.train_data, self.cfg.dataset, text_interface)
-        else:
-            data = DataFileList(data_name=dataset_config.train_data, ask_about=self.cfg.experiment.ask_about).data_objs[0].data
-            text_interface.prepare_prompt_sft(data, reasoning=self.cfg.experiment.reasoning)
-            data = text_interface.data_in
+        data = self._anonymize_data(dataset_config.train_data, self.cfg.dataset, text_interface)
         train_dataset, eval_dataset = self._prepare_data(data)
 
         train_dataset, eval_dataset = map(partial(self.format_dataset, dataset_config=dataset_config), [train_dataset, eval_dataset])
@@ -238,13 +245,22 @@ class CausalTrainer:
         write_out_file = self.output_dir / f'{test_data_name}_output.csv'
 
         # Create text interface for prompt composition
-        text_interface = TextInterfaceForLLMs(
-            str(write_out_file),
-            ask_about=self.cfg.experiment.ask_about,
-            enable_fewshot=self.cfg.experiment.enable_cot,
-            enable_cot=self.cfg.experiment.enable_fewshot,
-            given_cot_until_step=self.cfg.experiment.given_cot_until_step
-        )
+        if self.cfg.dataset.name == 'cladder':
+            text_interface = CladderTextInterface(
+                str(write_out_file),
+                ask_about=self.cfg.experiment.ask_about,
+                enable_fewshot=self.cfg.experiment.enable_fewshot,
+                enable_cot=self.cfg.experiment.enable_cot,
+                given_cot_until_step=self.cfg.experiment.given_cot_until_step
+            )
+        elif self.cfg.dataset.name == 'prontoqa':
+            text_interface = ProntoQATextInterface(
+                str(write_out_file),
+                ask_about=self.cfg.experiment.ask_about,
+                enable_fewshot=self.cfg.experiment.enable_fewshot,
+                enable_cot=self.cfg.experiment.enable_cot,
+                given_cot_until_step=self.cfg.experiment.given_cot_until_step
+            )
 
         if self.cfg.testing.check_score:
             score = pd.read_csv(text_interface.save_path).loc[0, "score"]
@@ -255,12 +271,7 @@ class CausalTrainer:
 
         # Process each dataset file for testing
         # Prepare test data
-        if self.cfg.dataset.anonymize:
-            data = self._anonymize_data(test_data, self.cfg.dataset, text_interface)
-        else:
-            data = DataFileList(data_name=test_data, ask_about=self.cfg.experiment.ask_about).data_objs[0].data
-            text_interface.prepare_prompt_sft(data, reasoning=self.cfg.experiment.reasoning)
-            data = text_interface.data_in
+        data = self._anonymize_data(test_data, self.cfg.dataset, text_interface)
         _, test_dataset = self._prepare_data(data)
         test_dataset = self.format_dataset(test_dataset, dataset_config=self.cfg.dataset, training=False)
         test_data = test_dataset.to_list()
@@ -338,17 +349,6 @@ class CausalTrainer:
                 print(
                     f"Sample Query: {batch_queries[0]}\n\nResponse: {batch_responses[0]}\n\nExtracted Answer: {test_data[i]['pred']}\n\nExpected Answer: {test_data[i]['truth']}\n\n")
 
-        # for i, datum in tqdm(enumerate(test_data), desc="Testing"):
-        #     query = datum["prompt"]
-        #
-        #     # Generate response using the model
-        #     response = self._generate_model_response(model, tokenizer, query, test_config)
-        #
-        #     # Extract the answer
-        #     pred = self._extract_answer(response)
-        #     datum['pred'] = pred
-        #     if i % 100 == 0:
-        #         print(f"Query: {query}\n\nResponse: {response}\n\nExtracted Answer: {pred}\n\nExpected Answer: {datum['truth']}\n\n")
 
         test_df = pd.DataFrame(test_data)
         test_df.to_csv(text_interface.save_path, index=False)
@@ -397,7 +397,7 @@ class CausalTrainer:
 
         from causalllm.structured_data_template import Anonymizer
 
-        file_path = f'{ROOT_PATH}/data/{data_name}_{dataset_config.anonymizer_version}_2ex'
+        file_path = f'{ROOT_PATH}/data/{dataset_config.anonymous_data_name}'
         data_file = Path(file_path + "_abstract.json")
         shuffled_file = Path(file_path + "_abstract_shuffled.json")
         invalid_data_file = Path(file_path + "_abstract_invalid.json")
@@ -416,18 +416,22 @@ class CausalTrainer:
                   'gpt-3.5-turbo': init_chat_model("gpt-3.5-turbo", model_provider="openai")}
 
         from efficiency.log import fread, show_var, fwrite, print_df_value_count
-        data_file_obj = DataFileList(data_name=data_name, shuffle=False, ask_about=self.cfg.experiment.ask_about).data_objs[0]
-        text_interface.prepare_prompt_sft(data_file_obj.data, reasoning=self.cfg.experiment.reasoning)
-
+        if 'cladder' in data_name:
+            dataset = DataFileList(data_name=data_name, shuffle=False, ask_about=self.cfg.experiment.ask_about).data_objs[0].data
+        elif 'prontoqa' in data_name:
+            dataset = json.loads(Path(f'{ROOT_PATH}/data/{data_name}.json').read_text())['next_steps']
+        text_interface.prepare_prompt_sft(dataset, reasoning=self.cfg.experiment.reasoning)
         data = text_interface.data_in
+
 
         # Setup agent with structured output
         agent = models[dataset_config.anonymizer_version].with_structured_output(schema=Anonymizer).with_retry()
 
         # Load messages
-        system_message = Path(f'{ROOT_PATH}/causalllm/agents/anonymize/system.txt').read_text()
-        user_message = Path(f'{ROOT_PATH}/causalllm/agents/anonymize/user.txt').read_text()
-        example_message = Path(f'{ROOT_PATH}/causalllm/agents/anonymize/example.txt')
+        message_path = Path(f'{ROOT_PATH}/causalllm/agents/anonymize/{dataset_config.name}')
+        system_message = (message_path / f'system.txt').read_text()
+        user_message = (message_path / f'user.txt').read_text()
+        example_message = message_path / f'example.txt'
         example = json.loads(example_message.read_text())
 
         pure_example = deepcopy(example)
@@ -641,9 +645,13 @@ class CausalTrainer:
                 return 'yes'
             elif 'no' in answer_text:
                 return 'no'
+            elif 'true' in answer_text:
+                return 'true'
+            elif 'false' in answer_text:
+                return 'false'
         else:
             # if cannot find the <answer> tags, find the first yes or no, neglecting capitalization
-            answer_text = re.search(r'\b(yes|no)\b', response, re.IGNORECASE)
+            answer_text = re.search(r'\b(yes|no|true|false)\b', response, re.IGNORECASE)
             if answer_text:
                 return answer_text.group(1).lower()
 

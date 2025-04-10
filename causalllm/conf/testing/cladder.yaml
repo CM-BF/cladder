@@ -1,0 +1,6 @@
+test_data:
+    - "cladder-v1/cladder-v1-q-commonsense"
+    - "cladder-v1/cladder-v1-q-anticommonsense"
+    - "cladder-v1/cladder-v1-q-noncommonsense"
+test_batch_size: 32
+max_new_tokens: 1024

@@ -1,0 +1,4 @@
+test_data:
+    - "prontoqa/prontoqa"
+test_batch_size: 32
+max_new_tokens: 1024

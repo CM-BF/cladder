@@ -16,6 +16,7 @@ from pathlib import Path
 from tqdm import tqdm
 
 from causalllm.structured_data_template import Anonymizer
+from copy import deepcopy
 
 models = {'gpt-4o-mini': init_chat_model("gpt-4o-mini", model_provider="openai"),
           'gpt-4o': init_chat_model("gpt-4o", model_provider="openai"),
@@ -33,13 +34,13 @@ class FormatDict(dict):
     def __missing__(self, key):
         return "{" + key + "}"
 
-
-class TextInterfaceForLLMs:
+class TextInterface:
     truth2norm = {
         '1': 1,
         '0': 0,
 
         'yes': 1,
+        'true': 1,
         'entailment': 1,
         'neutral': 0.5,
         'unknown': 0.5,
@@ -47,12 +48,121 @@ class TextInterfaceForLLMs:
         'not-counterfactual': 0,
         'counterfactual': 1,
         'no': 0,
+        'false': 0,
     }
 
     prefix2norm = {
         'Yes': 1,
         'No': 0,
     }
+
+    def __init__(self, save_path):
+        self.save_path = save_path
+
+    def convert_to_norm(self, value):
+        invalid = -1
+        value = str(value).lower().strip().strip('"')
+
+        for prefix, norm in self.prefix2norm.items():
+            if value.startswith(prefix.lower()):
+                return norm
+        return invalid
+
+    def convert_truth_to_norm(self, value):
+        return self.truth2norm.get(value.lower() if isinstance(value, str) else value, value)
+
+    def response_processor(self, **kwargs):
+
+        from efficiency.log import fread
+        data = fread(self.save_path)
+        if data:
+            self.data_out = data
+
+            for datum in self.data_out:
+                datum['pred_norm'] = self.convert_to_norm(datum['pred'])
+                datum.update(kwargs)
+            self.save()
+
+    def save(self):
+        from efficiency.log import write_dict_to_csv
+        write_dict_to_csv(self.data_out, self.save_path, verbose=True)
+        # import pandas as pd
+        # df = pd.DataFrame(self.data)
+        # df.to_csv(self.save(), index=False)
+        # print('')
+
+
+class ProntoQATextInterface(TextInterface):
+
+    def __init__(self, save_path, ask_about=None, enable_fewshot=False, enable_cot=False, given_cot_until_step=None):
+        super().__init__(save_path)
+        self.prefix2norm = {
+            'True': 1,
+            'False': 0,
+        }
+        from efficiency.log import verbalize_list_of_options
+        self.q_type2prompt_suffix = {
+            'answer': f'Start your answer with {verbalize_list_of_options(self.prefix2norm)}, followed by additional reasoning or evidence'
+                      f' to support your explanation.',
+            'direct_answer': f'Answer the question using only {verbalize_list_of_options(self.prefix2norm)}.',
+            'thinking_answer': f'Show your work in <think> </think> tags. And return the final answer {verbalize_list_of_options(self.prefix2norm)} in <answer> </answer> tags, for example <answer> Yes </answer>',
+            'cot_final': 'Based on all the reasoning above, output one word to answer the initial question {question} with just ' + verbalize_list_of_options(
+                self.prefix2norm),
+        }
+
+    def get_cot_prompt(self, sampled_data):
+        formatted_examples = ""
+        for i, entry in enumerate(sampled_data, 1):
+            formatted_examples += f"Q: {entry['Facts']} {entry['claims'][0]} {entry['Query']}\n"
+            formatted_examples += f"A: {entry['claims'][0]} "
+            for j, (claim, next_step) in enumerate(zip(entry['claims'][1:], entry['next_steps'][:-1]), 1):
+                formatted_examples += f"{next_step} So {claim} "
+            tf = not (("not" in entry['claims'][-1]) ^ ("not" in entry['Query']))
+            formatted_examples += f"The answer is {'true' if tf else 'false'}.\n\n"
+        return formatted_examples
+
+    def prepare_prompt_sft(self, list_of_dicts, reasoning=False):
+        if list_of_dicts is not None:
+            self.data_in = self.prompt_composer_sft(list_of_dicts, reasoning=reasoning)
+
+    def prompt_composer_sft(self, data, ask_about='answer', reasoning=False):
+
+        for datum in data:
+            datum['truth'] = str(not (("not" in datum['claims'][-1]) ^ ("not" in datum['Query'])))
+            truth_norm = self.convert_truth_to_norm(datum['truth'])
+            # -- Complete all thoughts: Change {var_notions} to e.g. Use "X" to represent "eating citrus". Use "V2" to represent "vitmain C". Use "Y" to represent "curly hair" --
+            default_query_suffix = self.q_type2prompt_suffix['thinking_answer'] if reasoning else self.q_type2prompt_suffix['direct_answer']
+            # TODO: add few-shot to prompt here.
+            datum['raw_prompt'] =  f"Given facts: {datum['Facts']}\n\nGiven {datum['claims'][0].strip('.')}, answer the question: {datum['Query']}"
+            prompt = f"{datum['raw_prompt']}\n\n{default_query_suffix}"  # Simpliest prompt: Background + Answer_requirement
+
+            response = self.compose_response(datum, reasoning=reasoning)
+
+            # del datum['raw_prompt'], datum['raw_prompt_without_q'], datum['old']
+            datum.update({
+                'prompt': prompt,
+                'query_suffix': default_query_suffix,
+                'response': response,
+                'truth_norm': truth_norm,
+            })
+
+        return data
+
+    def compose_response(self, datum, reasoning):
+        if not reasoning:
+            response = f"{datum['truth'].capitalize()}"
+        else:
+            thinking = f"Let's think about it step by step. First, we have {datum['claims'][0]}\n\n"
+            for j, (claim, next_step) in enumerate(zip(datum['claims'][1:], datum['next_steps'][:-1]), 1):
+                thinking += f"{next_step} So {claim}\n\n"
+            thinking += f"Therefore, the answer is {datum['truth']}."
+            response = f"<think> {thinking} </think>\n<answer> {datum['truth'].capitalize()} </answer>"
+        return response
+
+
+
+
+class CladderTextInterface (TextInterface):
     query_list_file = f'{ROOT_PATH}/config/meta_queries.json'
     from efficiency.log import fread
     query_str2id = {i['query_type_str']: i['query_id'] for i in fread(query_list_file, verbose=False)}
@@ -123,6 +233,7 @@ class TextInterfaceForLLMs:
             self.q_type2prompt_suffix[key] += ' Answer concisely.'
 
     def __init__(self, save_path, ask_about=None, enable_fewshot=False, enable_cot=False, given_cot_until_step=None):
+        super().__init__(save_path)
         if ask_about == 'query_type':
             self.prefix2norm = self.query_str2id
             self.truth2norm = self.query_type2id
@@ -153,7 +264,6 @@ class TextInterfaceForLLMs:
         self.ask_about = ask_about
         self.given_cot_until_step = given_cot_until_step
         self.init_prompt() # Compose COT prompts from the steps
-        self.save_path = save_path
         self.enable_fewshot = enable_fewshot
         self.enable_cot = enable_cot
 
@@ -213,13 +323,9 @@ class TextInterfaceForLLMs:
         return few_shot_prompt
 
     def prompt_composer(self, data, ask_about):
-        def convert_truth_to_norm(value):
-            return self.truth2norm.get(value.lower() if isinstance(value, str) else value, value)
-
-        from copy import deepcopy
 
         for datum in data:
-            truth_norm = convert_truth_to_norm(datum['truth'])
+            truth_norm = self.convert_truth_to_norm(datum['truth'])
             # -- Complete all thoughts: Change {var_notions} to e.g. Use "X" to represent "eating citrus". Use "V2" to represent "vitmain C". Use "Y" to represent "curly hair" --
             q2prompt = deepcopy(self.q_type2prompt_suffix)
             q2prompt = {k: v.format(var_notions=self._datum2var_notions(datum, keep_var_values=k == 'given_info'),
@@ -251,13 +357,9 @@ class TextInterfaceForLLMs:
         return data
 
     def prompt_composer_sft(self, data, ask_about, reasoning=False):
-        def convert_truth_to_norm(value):
-            return self.truth2norm.get(value.lower() if isinstance(value, str) else value, value)
-
-        from copy import deepcopy
 
         for datum in data:
-            truth_norm = convert_truth_to_norm(datum['truth'])
+            truth_norm = self.convert_truth_to_norm(datum['truth'])
             # -- Complete all thoughts: Change {var_notions} to e.g. Use "X" to represent "eating citrus". Use "V2" to represent "vitmain C". Use "Y" to represent "curly hair" --
             q2prompt = deepcopy(self.q_type2prompt_suffix)
             q2prompt['answer'] = q2prompt['thinking_answer'] if reasoning else q2prompt['direct_answer']
@@ -270,7 +372,7 @@ class TextInterfaceForLLMs:
             # TODO: add few-shot to prompt here.
             prompt = f"{datum[key]}\n\n{default_query_suffix}" # Simpliest prompt: Background + Answer_requirement
 
-            response = SFTQAComposer(self).compose_response(datum, reasoning=reasoning)
+            response = QAComposer(self).compose_response(datum, reasoning=reasoning)
 
             # del datum['raw_prompt'], datum['raw_prompt_without_q'], datum['old']
             datum.update({
@@ -282,179 +384,6 @@ class TextInterfaceForLLMs:
 
         return data
 
-    # def anonymize_prompt_reasoning(self, file_path, reasoning=False):
-    #     data_file = Path(file_path + "_abstract.json")
-    #     shuffled_file = Path(file_path + "_abstract_shuffled.json")
-    #     from copy import deepcopy
-    #     data = self.data_in
-    #     agent = models['gpt-4o'].with_structured_output(schema=Anonymizer).with_retry()
-    #     system_message = Path(f'{ROOT_PATH}/causalllm/agents/anonymize/system.txt').read_text()
-    #     user_message = Path(f'{ROOT_PATH}/causalllm/agents/anonymize/user.txt').read_text()
-    #     example_message = Path(f'{ROOT_PATH}/causalllm/agents/anonymize/example.txt')
-    #     example = json.loads(example_message.read_text())
-    #     import copy
-    #     pure_example = deepcopy(example)
-    #     pure_example.pop('raw_prompt')
-    #     pure_example.pop('response')
-    #     for i, datum in tqdm(enumerate(data)):
-    #         messages = [
-    #             SystemMessage(system_message),
-    #             HumanMessage(partial_replace(user_message, {
-    #                 'prompt': example['raw_prompt'],
-    #                 'response': example['response'],
-    #             })),
-    #             AIMessage(content=json.dumps(pure_example, indent=2)),
-    #             HumanMessage(partial_replace(user_message, {
-    #                 'prompt': datum['raw_prompt'],
-    #                 'response': datum['response'],
-    #             })),
-    #         ]
-    #
-    #         invalid = True
-    #         retry = 0
-    #         while invalid:
-    #             if retry > 5:
-    #                 print('Warning: failed 5 times')
-    #                 break
-    #             response = agent.invoke(messages)
-    #             retry += 1
-    #             invalid = False
-    #             for v2n in response.variable2name:
-    #                 if v2n.name in response.background_question or v2n.name in response.reasoning:
-    #                     invalid = True
-    #                     break
-    #         datum.update({
-    #             'abstract_prompt': response.background_question,
-    #             'abstract_reasoning': response.reasoning,
-    #             'var2name_map': {i.name: i.dict() for i in response.variable2name},
-    #         })
-    #
-    #     data_file.write_text(json.dumps(data, indent=4))
-    #     import random
-    #     random.shuffle(data)
-    #     shuffled_file.write_text(json.dumps(data, indent=4))
-    #     return data
-
-    def anonymize_prompt_reasoning(self, file_path, reasoning=False):
-        from copy import deepcopy
-        import json
-        import random
-        import asyncio
-        from tqdm.asyncio import tqdm_asyncio
-
-        data_file = Path(file_path + "_abstract.json")
-        shuffled_file = Path(file_path + "_abstract_shuffled.json")
-        if shuffled_file.exists():
-            json_data = shuffled_file.read_text()
-            data = json.loads(json_data)
-            return data
-
-        data = self.data_in
-
-        # Setup agent with structured output
-        agent = models['gpt-4o'].with_structured_output(schema=Anonymizer).with_retry()
-
-        # Load messages
-        system_message = Path(f'{ROOT_PATH}/causalllm/agents/anonymize/system.txt').read_text()
-        user_message = Path(f'{ROOT_PATH}/causalllm/agents/anonymize/user.txt').read_text()
-        example_message = Path(f'{ROOT_PATH}/causalllm/agents/anonymize/example.txt')
-        example = json.loads(example_message.read_text())
-
-        pure_example = deepcopy(example)
-        pure_example.pop('raw_prompt')
-        pure_example.pop('response')
-
-        async def process_datum(datum):
-            messages = [
-                SystemMessage(system_message),
-                HumanMessage(partial_replace(user_message, {
-                    'prompt': example['raw_prompt'],
-                    'response': example['response'],
-                })),
-                AIMessage(content=json.dumps(pure_example, indent=2)),
-                HumanMessage(partial_replace(user_message, {
-                    'prompt': datum['raw_prompt'],
-                    'response': datum['response'],
-                })),
-            ]
-
-            invalid = True
-            retry = 0
-            while invalid:
-                if retry > 5:
-                    print(f'Warning: failed 5 times for datum')
-                    break
-                try:
-                    response = await agent.ainvoke(messages)
-                    retry += 1
-                    invalid = False
-                    for v2n in response.variable2name:
-                        if v2n.name in response.background_question or v2n.name in response.reasoning:
-                            invalid = True
-                            break
-                except Exception as e:
-                    print(f"Error processing datum: {e}")
-                    retry += 1
-                    await asyncio.sleep(1)  # Add small delay before retry
-
-            result = datum.copy()
-            result.update({
-                'abstract_prompt': response.background_question if not invalid else "",
-                'abstract_reasoning': response.reasoning if not invalid else "",
-                'var2name_map': {i.name: i.dict() for i in response.variable2name} if not invalid else {},
-            })
-            return result
-
-        # Process data in parallel with asyncio
-        async def process_all_data():
-            # Create tasks for all data items
-            tasks = [asyncio.create_task(process_datum(datum)) for datum in data]
-            # Gather results
-            processed_data = await tqdm_asyncio.gather(*tasks, desc='Data abstracting', total=len(tasks))
-            return processed_data
-
-        # Run the processing
-        processed_data = asyncio.run(process_all_data())
-
-        # Save the results
-        data_file.write_text(json.dumps(processed_data, indent=4))
-
-        # Create shuffled version
-        shuffled_data = deepcopy(processed_data)
-        random.shuffle(shuffled_data)
-        shuffled_file.write_text(json.dumps(shuffled_data, indent=4))
-
-        return processed_data
-
-
-    def convert_to_norm(self, value):
-        invalid = -1
-        value = str(value).lower().strip().strip('"')
-
-        for prefix, norm in self.prefix2norm.items():
-            if value.startswith(prefix.lower()):
-                return norm
-        return invalid
-
-    def response_processor(self, **kwargs):
-
-        from efficiency.log import fread
-        data = fread(self.save_path)
-        if data:
-            self.data_out = data
-
-            for datum in self.data_out:
-                datum['pred_norm'] = self.convert_to_norm(datum['pred'])
-                datum.update(kwargs)
-            self.save()
-
-    def save(self):
-        from efficiency.log import write_dict_to_csv
-        write_dict_to_csv(self.data_out, self.save_path, verbose=True)
-        # import pandas as pd
-        # df = pd.DataFrame(self.data)
-        # df.to_csv(self.save(), index=False)
-        # print('')
 
 
 class QAComposer():
@@ -480,96 +409,6 @@ class QAComposer():
             cot_truth = '\n\n'.join(step2answer)
             qa_pair = f"{datum['raw_prompt']}\n\n{cot_truth}"
         return qa_pair
-
-    def sub_question_prompts(self, data: Dict[str, Any], include_steps: Iterable = ('variables', 'graph')):
-        r'''
-        Compose question : answer pairs for each sub step
-
-        when given an unordered collection of known steps returns a dict of solved sub-questions and their answers
-        when given a list or tuple of known steps returns the corresponding list of solved sub-questions and their answers
-
-        Note: adjustement set questions are not supported
-        '''
-        self.q_type2step_prefix = self.text_interface.q_type2step_prefix
-        known_steps = self.known_steps
-        data = data['old']
-        # data['reasoning'] = data['old']['reasoning']
-        # import pdb;pdb.set_trace()
-
-        assert all([step in known_steps for step in include_steps]), f'include_steps must be a subset of {known_steps}'
-
-        terms = {}
-
-        if 'variables' in include_steps:
-            try:
-                terms['variables'] = data['reasoning']['step0']
-            except:
-                # it is the "backadj" case: =========== No reasoning provided ===========
-                return [data['answer'].capitalize()]
-
-        if 'graph' in include_steps:
-            step1 = data['reasoning']['step1'].replace(',', ', ')
-            terms['graph'] = f'Step 1) {self.q_type2step_prefix["graph"]}: {step1}.'
-
-        qtype = data['meta']['query_type']
-        query_title = self.text_interface.long_query_types[qtype].lower()
-        if 'query_type' in include_steps:
-            terms['query_type'] = f'Step 2) {self.q_type2step_prefix["query_type"]}: "{query_title}".'
-
-        formal_form = data['meta']['formal_form']  # should be equivalent to data['reasoning']['step2']
-        if 'formal_form' in include_steps:
-            terms['formal_form'] = f'Step 3) {self.q_type2step_prefix["formal_form"]}: {formal_form}.'
-
-        if 'given_info' in include_steps:
-            step4 = data['reasoning']['step4'].replace('\n', '; ')
-            if len(step4) == 0:
-                # terms['given_info'] = ''
-                step4 = 'No relevant data is provided'
-            terms['given_info'] = f'Step 4) {self.q_type2step_prefix["given_info"]}: {step4}.'
-
-        estimand = data['meta'].get('estimand')  # should be equivalent to data['reasoning']['step3']
-        if estimand is None:  # for rung 1 questions, estimand is the same as formal_form
-            estimand = formal_form
-            if qtype == 'collider_bias':
-                estimand = '0'
-        if 'estimand' in include_steps:
-            terms['estimand'] = f'Step 5) {self.q_type2step_prefix["estimand"]}: ' \
-                                f'We use causal inference to derive the estimand ' \
-                                f'implied by the causal graph for the query type "{query_title}":\n' \
-                                f'{formal_form}\n' \
-                                f'= {estimand}'
-        if 'estimate' in include_steps:
-            estimate = data['reasoning']['step5']
-            terms['estimate'] = f'Step 6) {self.q_type2step_prefix["estimate"]}:\n' \
-                                f'{estimand}\n' \
-                                f'= {estimate}'
-
-        end = data['reasoning']['end']
-        answer = data['answer']
-        if 'interpretation' in include_steps:
-            if qtype == 'collider_bias':
-                reasoning = data['reasoning']['step3'].replace('.', '')
-                terms['interpretation'] = f'Since {reasoning}, ' \
-                                          f'the overall answer to the question is {answer}.'
-            else:
-                terms['interpretation'] = f'Since the estimate for the estimand is {end}, ' \
-                                          f'the overall answer to the question is {answer}.'
-
-        if isinstance(include_steps, (list, tuple)):
-            return [terms[step] for step in include_steps]
-        return terms
-
-
-class SFTQAComposer():
-    from typing import Dict, Any, Iterable
-
-    known_steps = ['variables', 'graph', 'query_type', 'formal_form', 'given_info',  # parsing
-                   'estimand', 'estimate', 'interpretation'  # reasoning
-                   ]
-
-    def __init__(self, text_interface):
-        self.text_interface = text_interface
-
 
     def compose_response(self, datum, reasoning):
         if not reasoning:

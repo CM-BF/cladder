@@ -22,7 +22,7 @@ from langchain_core.runnables.config import RunnableConfig
 
 from causalllm.data import DataFileList
 from causalllm.evaluate import Scorer
-from causalllm.prompt_utils import partial_replace, TextInterfaceForLLMs
+from causalllm.prompt_utils import partial_replace, CladderTextInterface
 from causalllm.definitions import ROOT_PATH, missing_step, paraphrase_i
 from causalllm.structured_data_template import MultiAgentData, SCGString, Verifier, Reflector
 from causalllm.graph_parser import parse_graph_from_text, draw_graph
@@ -456,7 +456,7 @@ You are an expert in causal inference. The following question is not a typical c
             # == make file name end ==
 
             # --- Create LLM Text interface taking charge of template/prompt composer/response processor ---
-            text_interface = TextInterfaceForLLMs(write_out_file, ask_about=ask_about, enable_fewshot=enable_fewshot,
+            text_interface = CladderTextInterface(write_out_file, ask_about=ask_about, enable_fewshot=enable_fewshot,
                                                   enable_cot=enable_cot, given_cot_until_step=given_cot_until_step)
 
             # graph, multi_agent_data = scg_design(just_scoring, 'gpt-4o')

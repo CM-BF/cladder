@@ -1,4 +1,4 @@
 # conf/model/qwen.yaml
 name: "Qwen/Qwen2.5-3B-Instruct"
-new_model: QWen-R${experiment.reasoning}-DP${dataset.percent_of_train_dataset}-EP${training.num_train_epochs}-Abs${dataset.anonymize}-lr${training.learning_rate}
+new_model: QWen-${dataset.name}-R${experiment.reasoning}-DP${dataset.percent_of_train_dataset}-EP${training.num_train_epochs}-Abs${dataset.anonymize}-lr${training.learning_rate}
 trust_remote_code: true
