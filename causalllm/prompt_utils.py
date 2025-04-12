@@ -105,7 +105,7 @@ class ProntoQATextInterface(TextInterface):
             'answer': f'Start your answer with {verbalize_list_of_options(self.prefix2norm)}, followed by additional reasoning or evidence'
                       f' to support your explanation.',
             'direct_answer': f'Answer the question using only {verbalize_list_of_options(self.prefix2norm)}.',
-            'thinking_answer': f'Show your work in <think> </think> tags. And return the final answer {verbalize_list_of_options(self.prefix2norm)} in <answer> </answer> tags, for example <answer> Yes </answer>',
+            'thinking_answer': f'Show your work in <think> </think> tags. And return the final answer {verbalize_list_of_options(self.prefix2norm)} in <answer> </answer> tags, for example <answer> True </answer>',
             'cot_final': 'Based on all the reasoning above, output one word to answer the initial question {question} with just ' + verbalize_list_of_options(
                 self.prefix2norm),
         }

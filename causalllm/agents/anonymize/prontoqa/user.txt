@@ -5,10 +5,10 @@ background+question: "{prompt}"
 Reasoning steps: "{response}"
 
 
-Transform events/entities into variable symbols, denoted in order as {symbol_1}, {symbol_2}, {symbol_3}, etc; where event exist to be 1, non-exist to be 0, like {symbol_1}=1, or {symbol_1}=0.
+Transform all entities and adjectives into variable symbols, denoted in order as {symbol_1}, {symbol_2}, {symbol_3}, etc.
 Outputs the following information:
 1. Variable notations:
 - the variable symbol, e.g., {symbol_1}.
-- the original name of the symbol, e.g., small/butterfly.
-2. Transformed background and question, just replace events/entities with variables.
+- the original name of the symbol, e.g., small/butterfly/segmented/six-legged.
+2. Transformed background and question, just replace all entities and adjectives with variables.
 3. Transformed reasoning steps with the new symbols.

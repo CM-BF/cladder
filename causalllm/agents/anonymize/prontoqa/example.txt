@@ -1,75 +1,168 @@
-[{
-  "variable2name": [
+[
     {
-      "variable": "{symbol_1}",
-      "name": "127",
-      "set_description": null,
-      "unset_description": null
+        "variable2name": [
+            {
+                "variable": "{symbol_1}",
+                "name": "127",
+                "set_description": null,
+                "unset_description": null
+            },
+            {
+                "variable": "{symbol_2}",
+                "name": "Mersenne prime",
+                "set_description": null,
+                "unset_description": null
+            },
+            {
+                "variable": "{symbol_3}",
+                "name": "prime number",
+                "set_description": null,
+                "unset_description": null
+            },
+            {
+                "variable": "{symbol_4}",
+                "name": "natural number",
+                "set_description": null,
+                "unset_description": null
+            },
+            {
+                "variable": "{symbol_5}",
+                "name": "integer",
+                "set_description": null,
+                "unset_description": null
+            },
+            {
+                "variable": "{symbol_6}",
+                "name": "real number",
+                "set_description": null,
+                "unset_description": null
+            },
+            {
+                "variable": "{symbol_7}",
+                "name": "number",
+                "set_description": null,
+                "unset_description": null
+            },
+            {
+                "variable": "{symbol_8}",
+                "name": "composite",
+                "set_description": null,
+                "unset_description": null
+            },
+            {
+                "variable": "{symbol_9}",
+                "name": "imaginary number",
+                "set_description": null,
+                "unset_description": null
+            },
+            {
+                "variable": "{symbol_10}",
+                "name": "real",
+                "set_description": null,
+                "unset_description": null
+            },
+            {
+                "variable": "{symbol_11}",
+                "name": "positive",
+                "set_description": null,
+                "unset_description": null
+            }
+        ],
+        "raw_prompt": "Given facts: Prime numbers are natural numbers. Every Mersenne prime is not composite. Imaginary numbers are not real. Every real number is a number. Natural numbers are integers. Every real number is real. Every Mersenne prime is a prime number. Natural numbers are positive. Prime numbers are not composite. Integers are real numbers.\n\nGiven 127 is a Mersenne prime, answer the question: True or false: 127 is not real.",
+        "response": "<think> Let's think about it step by step. First, we have 127 is a Mersenne prime.\n\nEvery Mersenne prime is a prime number. So 127 is a prime number.\n\nPrime numbers are natural numbers. So 127 is a natural number.\n\nNatural numbers are integers. So 127 is an integer.\n\nIntegers are real numbers. So 127 is a real number.\n\nEvery real number is real. So 127 is real.\n\nTherefore, the answer is False. </think>\n<answer> False </answer>",
+        "background_question": "Given facts: {symbol_3} are {symbol_4}. Every {symbol_2} is not {symbol_8}. {symbol_9} are not {symbol_6}. Every {symbol_6} is a {symbol_7}. {symbol_4} are {symbol_5}. Every {symbol_6} is {symbol_10}. Every {symbol_2} is a {symbol_3}. {symbol_4} are {symbol_11}. {symbol_3} are not {symbol_8}. {symbol_5} are {symbol_6}.\n\nGiven {symbol_1} is a {symbol_2}, answer the question: True or false: {symbol_1} is not {symbol_6}.",
+        "reasoning": "<think> Let's think about it step by step. First, we have {symbol_1} is a {symbol_2}.\n\nEvery {symbol_2} is a {symbol_3}. So {symbol_1} is a {symbol_3}.\n\n{symbol_3} are {symbol_4}. So {symbol_1} is a {symbol_4}.\n\n{symbol_4} are {symbol_5}. So {symbol_1} is a {symbol_5}.\n\n{symbol_5} are {symbol_6}. So {symbol_1} is a {symbol_6}.\n\nEvery {symbol_6} is {symbol_10}. So {symbol_1} is {symbol_6}.\n\nTherefore, the answer is False. </think>\n<answer> False </answer>"
     },
     {
-      "variable": "{symbol_2}",
-      "name": "Mersenne prime",
-      "set_description": null,
-      "unset_description": null
-    },
-    {
-      "variable": "{symbol_3}",
-      "name": "prime number",
-      "set_description": null,
-      "unset_description": null
-    },
-    {
-      "variable": "{symbol_4}",
-      "name": "natural number",
-      "set_description": null,
-      "unset_description": null
-    },
-    {
-      "variable": "{symbol_5}",
-      "name": "integer",
-      "set_description": null,
-      "unset_description": null
-    },
-    {
-      "variable": "{symbol_6}",
-      "name": "real number",
-      "set_description": null,
-      "unset_description": null
-    },
-    {
-      "variable": "{symbol_7}",
-      "name": "number",
-      "set_description": null,
-      "unset_description": null
-    },
-    {
-      "variable": "{symbol_8}",
-      "name": "composite",
-      "set_description": null,
-      "unset_description": null
-    },
-    {
-      "variable": "{symbol_9}",
-      "name": "imaginary number",
-      "set_description": null,
-      "unset_description": null
-    },
-    {
-      "variable": "{symbol_10}",
-      "name": "real",
-      "set_description": null,
-      "unset_description": null
-    },
-    {
-      "variable": "{symbol_11}",
-      "name": "positive",
-      "set_description": null,
-      "unset_description": null
+        "variable2name": [
+            {
+                "variable": "{symbol_1}",
+                "name": "Wren",
+                "set_description": null,
+                "unset_description": null
+            },
+            {
+                "variable": "{symbol_2}",
+                "name": "tabby",
+                "set_description": null,
+                "unset_description": null
+            },
+            {
+                "variable": "{symbol_3}",
+                "name": "cat",
+                "set_description": null,
+                "unset_description": null
+            },
+            {
+                "variable": "{symbol_4}",
+                "name": "feline",
+                "set_description": null,
+                "unset_description": null
+            },
+            {
+                "variable": "{symbol_5}",
+                "name": "carnivore",
+                "set_description": null,
+                "unset_description": null
+            },
+            {
+                "variable": "{symbol_6}",
+                "name": "mammal",
+                "set_description": null,
+                "unset_description": null
+            },
+            {
+                "variable": "{symbol_7}",
+                "name": "furry",
+                "set_description": null,
+                "unset_description": null
+            },
+            {
+                "variable": "{symbol_8}",
+                "name": "vertebrate",
+                "set_description": null,
+                "unset_description": null
+            },
+            {
+                "variable": "{symbol_9}",
+                "name": "chordate",
+                "set_description": null,
+                "unset_description": null
+            },
+            {
+                "variable": "{symbol_10}",
+                "name": "bilaterian",
+                "set_description": null,
+                "unset_description": null
+            },
+            {
+                "variable": "{symbol_11}",
+                "name": "herbivorous",
+                "set_description": null,
+                "unset_description": null
+            },
+            {
+                "variable": "{symbol_12}",
+                "name": "snake",
+                "set_description": null,
+                "unset_description": null
+            },
+            {
+                "variable": "{symbol_13}",
+                "name": "animal",
+                "set_description": null,
+                "unset_description": null
+            },
+            {
+                "variable": "{symbol_14}",
+                "name": "multicellular",
+                "set_description": null,
+                "unset_description": null
+            }
+        ],
+        "raw_prompt": "Given facts: Every carnivore is a mammal. Animals are multicellular. Every vertebrate is a chordate. Every carnivore is not herbivorous. Each snake is not furry. Every cat is a feline. Chordates are bilaterians. Each feline is a carnivore. Mammals are vertebrates. Mammals are furry. Bilaterians are animals. Every tabby is a cat.\n\nGiven Wren is a tabby, answer the question: True or false: Wren is furry.",
+        "response": "<think> Let's think about it step by step. First, we have Wren is a tabby.\n\nEvery tabby is a cat. So Wren is a cat.\n\nEvery cat is a feline. So Wren is a feline.\n\nEach feline is a carnivore. So Wren is a carnivore.\n\nEvery carnivore is a mammal. So Wren is a mammal.\n\nMammals are furry. So Wren is furry.\n\nTherefore, the answer is True. </think>\n<answer> True </answer>",
+        "background_question": "Given facts: Every {symbol_5} is a {symbol_6}. {symbol_13}s are {symbol_14}. Every {symbol_8} is a {symbol_9}. Every {symbol_5} is not {symbol_11}. Each {symbol_12} is not {symbol_7}. Every {symbol_3} is a {symbol_4}. {symbol_9}s are {symbol_10}s. Each {symbol_4} is a {symbol_5}. {symbol_6}s are {symbol_8}. {symbol_6}s are {symbol_7}. {symbol_10}s are {symbol_13}s. Every {symbol_2} is a {symbol_3}.\n\nGiven {symbol_1} is a {symbol_2}, answer the question: True or false: {symbol_1} is {symbol_7}.",
+        "reasoning": "<think> Let's think about it step by step. First, we have {symbol_1} is a {symbol_2}.\n\nEvery {symbol_2} is a {symbol_3}. So {symbol_1} is a {symbol_3}.\n\nEvery {symbol_3} is a {symbol_4}. So {symbol_1} is a {symbol_4}.\n\nEach {symbol_4} is a {symbol_5}. So {symbol_1} is a {symbol_5}.\n\nEvery {symbol_5} is a {symbol_6}. So {symbol_1} is a {symbol_6}.\n\n{symbol_6}s are {symbol_7}. So {symbol_1} is {symbol_7}.\n\nTherefore, the answer is True. </think>\n<answer> True </answer>"
     }
-  ],
-  "raw_prompt": "Given facts: Prime numbers are natural numbers. Every Mersenne prime is not composite. Imaginary numbers are not real. Every real number is a number. Natural numbers are integers. Every real number is real. Every Mersenne prime is a prime number. Natural numbers are positive. Prime numbers are not composite. Integers are real numbers.\n\nGiven 127 is a Mersenne prime, answer the question: True or false: 127 is not real.",
-  "response": "<think> Let's think about it step by step. First, we have 127 is a Mersenne prime.\n\nEvery Mersenne prime is a prime number. So 127 is a prime number.\n\nPrime numbers are natural numbers. So 127 is a natural number.\n\nNatural numbers are integers. So 127 is an integer.\n\nIntegers are real numbers. So 127 is a real number.\n\nEvery real number is real. So 127 is real.\n\nTherefore, the answer is False. </think>\n<answer> False </answer>",
-  "background_question": "Given facts: {symbol_3} are {symbol_4}. Every {symbol_2} is not {symbol_8}. {symbol_9} are not {symbol_6}. Every {symbol_6} is a {symbol_7}. {symbol_4} are {symbol_5}. Every {symbol_6} is {symbol_10}. Every {symbol_2} is a {symbol_3}. {symbol_4} are {symbol_11}. {symbol_3} are not {symbol_8}. {symbol_5} are {symbol_6}.\n\nGiven {symbol_1} is a {symbol_2}, answer the question: True or false: {symbol_1} is not {symbol_6}.",
-  "reasoning": "<think> Let's think about it step by step. First, we have {symbol_1} is a {symbol_2}.\n\nEvery {symbol_2} is a {symbol_3}. So {symbol_1} is a {symbol_3}.\n\n{symbol_3} are {symbol_4}. So {symbol_1} is a {symbol_4}.\n\n{symbol_4} are {symbol_5}. So {symbol_1} is a {symbol_5}.\n\n{symbol_5} are {symbol_6}. So {symbol_1} is a {symbol_6}.\n\nEvery {symbol_6} is {symbol_10}. So {symbol_1} is {symbol_6}.\n\nTherefore, the answer is False. </think>\n<answer> False </answer>"
-}
 ]

@@ -355,7 +355,7 @@ class CausalTrainer:
 
         text_interface.response_processor(model_version=f"{new_model_name}")
 
-        Scorer([text_interface.save_path], ask_about='answer', save_perfomance=text_interface.save_path)
+        Scorer([text_interface.save_path], ask_about='answer', save_perfomance=text_interface.save_path, data_name=self.cfg.dataset.name)
         score = pd.read_csv(text_interface.save_path).loc[0, "score"]
         return score
 
@@ -420,6 +420,8 @@ class CausalTrainer:
             dataset = DataFileList(data_name=data_name, shuffle=False, ask_about=self.cfg.experiment.ask_about).data_objs[0].data
         elif 'prontoqa' in data_name:
             dataset = json.loads(Path(f'{ROOT_PATH}/data/{data_name}.json').read_text())['next_steps']
+        else:
+            raise ValueError(f"Unknown dataset: {data_name}")
         text_interface.prepare_prompt_sft(dataset, reasoning=self.cfg.experiment.reasoning)
         data = text_interface.data_in
 
@@ -471,7 +473,7 @@ class CausalTrainer:
                         retry += 1
                         invalid = False
                         for v2n in response.variable2name:
-                            if v2n.name not in ['age', 'treatment'] and (v2n.name in response.background_question or v2n.name in response.reasoning):
+                            if (not v2n.name.isdigit()) and v2n.name not in ['age', 'treatment'] and (v2n.name in response.background_question or v2n.name in response.reasoning):
                                 invalid = True
                                 break
                     except Exception as e:

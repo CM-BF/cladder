@@ -3,11 +3,12 @@ from causalllm.definitions import ROOT_PATH
 
 
 class Scorer:
-    def __init__(self, files, ask_about, save_perfomance=None):
+    def __init__(self, files, ask_about, save_perfomance=None, data_name=None):
         if not len(files):
             print('No files for evaluation')
             import sys
             sys.exit()
+        self.data_name = data_name
         self.save_perfomance = save_perfomance if save_perfomance else f'{ROOT_PATH}/outputs/performance.csv'
 
         from efficiency.log import fread
@@ -77,56 +78,63 @@ class Scorer:
         df = self.apply_score_func(df, ask_about)
         # df['score'] = (df['pred_norm'] == df['truth_norm'])
 
-        if ask_about not in {'graph'}:
-            from sklearn.metrics import classification_report
-            df_valid = df[~df['pred_norm'].isna()]
-            for rung in [1, 2, 3]:
-                report = classification_report(df_valid[df_valid['rung'] == rung]['truth_norm'],
-                                               df_valid[df_valid['rung'] == rung]['pred_norm'], digits=4)
-                print(f'Classification report for rung {rung}: \n {report}')
-            report = classification_report(df_valid['truth_norm'], df_valid['pred_norm'], digits=4)
-            print(f'Classification report for all: \n {report}')
+        if self.data_name == 'cladder':
+
+            if ask_about not in {'graph'}:
+                from sklearn.metrics import classification_report
+                df_valid = df[~df['pred_norm'].isna()]
+                for rung in [1, 2, 3]:
+                    report = classification_report(df_valid[df_valid['rung'] == rung]['truth_norm'],
+                                                   df_valid[df_valid['rung'] == rung]['pred_norm'], digits=4)
+                    print(f'Classification report for rung {rung}: \n {report}')
+                report = classification_report(df_valid['truth_norm'], df_valid['pred_norm'], digits=4)
+                print(f'Classification report for all: \n {report}')
 
 
-        res_dfs = []
-        # -- 2. Results grouping by model_version --
-        for uniq_vign_key in ['model_version']:
-            try:
-                res_df = self._res_by_group(df, uniq_vign_key)
-                res_dfs.append(res_df)
-            except:
-                continue
-        for model_version in sorted(df['model_version'].unique().tolist()):
-            new_df = df[df['model_version'] == model_version]; print('-' * 20, model_version, '-' * 20)
-            # - 3. In each model version, group different properties like sensical, query_type, rung, phenomenon, and simpson. -
-            for uniq_vign_key in DataFile.metadata_keys:
+            res_dfs = []
+            # -- 2. Results grouping by model_version --
+            for uniq_vign_key in ['model_version']:
                 try:
-                    res_df = self._res_by_group(new_df, uniq_vign_key)
-                    res_df['model_version'] = model_version
+                    res_df = self._res_by_group(df, uniq_vign_key)
                     res_dfs.append(res_df)
                 except:
                     continue
+            for model_version in sorted(df['model_version'].unique().tolist()):
+                new_df = df[df['model_version'] == model_version]; print('-' * 20, model_version, '-' * 20)
+                # - 3. In each model version, group different properties like sensical, query_type, rung, phenomenon, and simpson. -
+                for uniq_vign_key in DataFile.metadata_keys:
+                    try:
+                        res_df = self._res_by_group(new_df, uniq_vign_key)
+                        res_df['model_version'] = model_version
+                        res_dfs.append(res_df)
+                    except:
+                        continue
 
-        import pandas as pd
-        res_df = pd.concat(res_dfs) # - a weird way to show the performance -
-        print(res_df)
-        res_df.to_csv(self.save_perfomance)
+            import pandas as pd
+            res_df = pd.concat(res_dfs) # - a weird way to show the performance -
+            print(res_df)
+            res_df.to_csv(self.save_perfomance)
 
-        # -- 4. Aggregate the results by query_type x model_version | score --
-        def pivot_df(df, rows='query_type', columns='model_version', score_col='score', verbose=True):
-            pivot_df = df.pivot_table(index=rows, columns=columns, values=score_col, aggfunc='first')
+            # -- 4. Aggregate the results by query_type x model_version | score --
+            def pivot_df(df, rows='query_type', columns='model_version', score_col='score', verbose=True):
+                pivot_df = df.pivot_table(index=rows, columns=columns, values=score_col, aggfunc='first')
 
-            pivot_df.reset_index(inplace=True)
-            pivot_df.fillna('---', inplace=True)
-            pivot_df.columns.name = None
+                pivot_df.reset_index(inplace=True)
+                pivot_df.fillna('---', inplace=True)
+                pivot_df.columns.name = None
 
-            desired_order = sorted(df[rows].apply(str).unique().tolist())
-            pivot_df.set_index(rows, inplace=True)
-            pivot_df = pivot_df.reindex(desired_order)
-            pivot_df.reset_index(inplace=True)
-            if verbose: print(pivot_df)
-            return pivot_df
-        pivot_df(res_df)
+                desired_order = sorted(df[rows].apply(str).unique().tolist())
+                pivot_df.set_index(rows, inplace=True)
+                pivot_df = pivot_df.reindex(desired_order)
+                pivot_df.reset_index(inplace=True)
+                if verbose: print(pivot_df)
+                return pivot_df
+            pivot_df(res_df)
+        elif self.data_name == 'prontoqa':
+            res_df = self._res_by_group(df, 'model_version')
+            print(res_df)
+            res_df.to_csv(self.save_perfomance)
+
 
     @staticmethod
     def _res_by_group(df, uniq_vign_key, result_key='score', return_obj=['group_dict', 'consistency_rate'][0]):
