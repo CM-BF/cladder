@@ -1,5 +1,7 @@
 import operator
 import os.path
+import random
+import string
 from functools import partial
 from pathlib import Path
 from typing import Literal, Any, List, TypedDict, Annotated, Dict, Tuple
@@ -11,7 +13,7 @@ from efficiency.log import fread
 from omegaconf import DictConfig, OmegaConf
 import pandas as pd
 from itertools import product
-from datasets import Dataset
+from datasets import Dataset, concatenate_datasets
 from statsmodels.gam.tests.test_penalized import file_path
 from tqdm import tqdm
 import json
@@ -24,6 +26,7 @@ from transformers import (
 )
 from peft import LoraConfig
 from trl import SFTTrainer, DataCollatorForCompletionOnlyLM, SFTConfig
+from transformers import DataCollatorForLanguageModeling
 
 from causalllm.data import DataFileList
 from causalllm.evaluate import Scorer
@@ -228,6 +231,10 @@ class CausalTrainer:
         # "prompt" is a special column key for SFTTrainer's data preprocessing
         if dataset_config.anonymize:
             dataset = dataset.rename_columns({"abstract_prompt": "instruction", "abstract_reasoning": "output"})
+            if training:
+                n = 10000 // len(dataset)
+                dataset = concatenate_datasets([dataset] * n)
+            dataset = dataset.map(partial(self._replace_symbols, symbol_replacement=dataset_config.anonymize), desc="Replacing symbols in dataset")
         else:
             dataset = dataset.rename_columns({"prompt": "instruction", "response": "output"})
         if training:
@@ -237,6 +244,21 @@ class CausalTrainer:
             if not dataset_config.use_special_template:
                 dataset = dataset.map(self._format_transform, desc="Formatting dataset to ChatML")
         return dataset
+
+    def _replace_symbols(self, example, symbol_replacement):
+        """Replace symbols in the dataset with their corresponding text"""
+        # Replace symbols in the instruction and output fields
+        var2name_map = json.loads(example["var2name_map"])
+        if symbol_replacement == 'order':
+            letters = string.ascii_uppercase[:len(var2name_map)]
+        elif symbol_replacement == 'random':
+            letters = random.sample(string.ascii_uppercase, len(var2name_map))
+        elif symbol_replacement == 'original':
+            letters = [info['name'] for info in var2name_map.values()]
+        else:
+            raise ValueError(f"Unknown symbol replacement method: {symbol_replacement}")
+        sym2letter = {info['variable'].strip('{}'): letter for info, letter in zip(var2name_map.values(), letters)}
+        return {"instruction": partial_replace(example["instruction"], sym2letter), "output": partial_replace(example["output"], sym2letter)}
 
     def test_model(self, model_name, new_model_name, test_data):
         """Test the trained model on the test dataset and compute accuracy"""

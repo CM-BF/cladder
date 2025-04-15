@@ -2,18 +2,22 @@ program:
   causalllm/train_sft.py
 method: grid
 #method: random
-name: Abstract_Training
+name: Abstract_Training_CLadder
 parameters:
   'experiment.reasoning':
     value: True
+  'dataset':
+    value: cladder
   'dataset.anonymize':
-    values: [True, False]
+    values: ["null", "order", "random", "original"]
   'dataset.percent_of_train_dataset':
     values: [0.001, 0.005, 0.01, 0.02, 0.05]
-  'training.num_train_epochs':
-    values: [1, 2, 4, 8, 16, 32, 64]
+  'training.max_steps':
+    values: [ 50, 100, 200, 400, 800, 1600, 3200 ]
   'training.learning_rate':
     values: [1.5e-4, 3e-4, 6e-4]
+  'testing':
+    value: cladder
 command:
   - ${env}
   - ROOT_PATH=/data/shurui.gui/Projects/cladder

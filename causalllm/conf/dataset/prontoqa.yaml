@@ -7,6 +7,6 @@ use_special_template: false
 response_template: "### Answer:"
 instruction_prompt_template: "### Human:"
 seed: 19
-anonymize: false
+anonymize: null
 anonymizer_version: gpt-4o-mini
 shuffle: false

@@ -45,7 +45,7 @@ training:
     weight_decay: 0.01
     optim: "paged_adamw_32bit"
     lr_scheduler_type: "cosine"
-    max_steps: -1
+    max_steps: 50
     warmup_ratio: 0.03
     group_by_length: true
     save_steps: 0
