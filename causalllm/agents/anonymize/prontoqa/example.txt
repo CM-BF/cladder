@@ -164,5 +164,79 @@
         "response": "<think> Let's think about it step by step. First, we have Wren is a tabby.\n\nEvery tabby is a cat. So Wren is a cat.\n\nEvery cat is a feline. So Wren is a feline.\n\nEach feline is a carnivore. So Wren is a carnivore.\n\nEvery carnivore is a mammal. So Wren is a mammal.\n\nMammals are furry. So Wren is furry.\n\nTherefore, the answer is True. </think>\n<answer> True </answer>",
         "background_question": "Given facts: Every {symbol_5} is a {symbol_6}. {symbol_13}s are {symbol_14}. Every {symbol_8} is a {symbol_9}. Every {symbol_5} is not {symbol_11}. Each {symbol_12} is not {symbol_7}. Every {symbol_3} is a {symbol_4}. {symbol_9}s are {symbol_10}s. Each {symbol_4} is a {symbol_5}. {symbol_6}s are {symbol_8}. {symbol_6}s are {symbol_7}. {symbol_10}s are {symbol_13}s. Every {symbol_2} is a {symbol_3}.\n\nGiven {symbol_1} is a {symbol_2}, answer the question: True or false: {symbol_1} is {symbol_7}.",
         "reasoning": "<think> Let's think about it step by step. First, we have {symbol_1} is a {symbol_2}.\n\nEvery {symbol_2} is a {symbol_3}. So {symbol_1} is a {symbol_3}.\n\nEvery {symbol_3} is a {symbol_4}. So {symbol_1} is a {symbol_4}.\n\nEach {symbol_4} is a {symbol_5}. So {symbol_1} is a {symbol_5}.\n\nEvery {symbol_5} is a {symbol_6}. So {symbol_1} is a {symbol_6}.\n\n{symbol_6}s are {symbol_7}. So {symbol_1} is {symbol_7}.\n\nTherefore, the answer is True. </think>\n<answer> True </answer>"
+    },
+    {
+        "variable2name": [
+            {
+                "variable": "{symbol_1}",
+                "name": "Wren",
+                "set_description": null,
+                "unset_description": null
+            },
+            {
+                "variable": "{symbol_2}",
+                "name": "butterfly",
+                "set_description": null,
+                "unset_description": null
+            },
+            {
+                "variable": "{symbol_3}",
+                "name": "lepidopteran",
+                "set_description": null,
+                "unset_description": null
+            },
+            {
+                "variable": "{symbol_4}",
+                "name": "insect",
+                "set_description": null,
+                "unset_description": null
+            },
+            {
+                "variable": "{symbol_5}",
+                "name": "eight-legged",
+                "set_description": null,
+                "unset_description": null
+            },
+            {
+                "variable": "{symbol_6}",
+                "name": "nematode",
+                "set_description": null,
+                "unset_description": null
+            },
+            {
+                "variable": "{symbol_7}",
+                "name": "segmented",
+                "set_description": null,
+                "unset_description": null
+            },
+            {
+                "variable": "{symbol_8}",
+                "name": "animal",
+                "set_description": null,
+                "unset_description": null
+            },
+            {
+                "variable": "{symbol_9}",
+                "name": "arthropod",
+                "set_description": null,
+                "unset_description": null
+            },
+            {
+                "variable": "{symbol_10}",
+                "name": "invertebrate",
+                "set_description": null,
+                "unset_description": null
+            },
+            {
+                "variable": "{symbol_11}",
+                "name": "unicellular",
+                "set_description": null,
+                "unset_description": null
+            }
+        ],
+        "raw_prompt": "Given facts: Every butterfly is a lepidopteran. Lepidopterans are insects. Each insect is not eight-legged. Nematodes are not segmented. Animals are not unicellular. Arthropods are segmented. Each arthropod is an invertebrate. Every insect is an arthropod. Each invertebrate is an animal.\n\nGiven Wren is a butterfly, answer the question: True or false: Wren is not segmented.",
+        "response": "<think> Let's think about it step by step. First, we have Wren is a butterfly.\n\nEvery butterfly is a lepidopteran. So Wren is a lepidopteran.\n\nLepidopterans are insects. So Wren is an insect.\n\nEvery insect is an arthropod. So Wren is an arthropod.\n\nArthropods are segmented. So Wren is segmented.\n\nTherefore, the answer is False. </think>\n<answer> False </answer>",
+        "background_question": "Given facts: Every {symbol_2} is a {symbol_3}. {symbol_3}s are {symbol_4}s. Each {symbol_4} is not {symbol_5}. {symbol_6}s are not {symbol_7}. {symbol_8}s are not {symbol_11}. {symbol_9}s are {symbol_7}. Each {symbol_9} is an {symbol_10}. Every {symbol_4} is an {symbol_9}. Each {symbol_10} is an {symbol_8}.\n\nGiven {symbol_1} is a {symbol_2}, answer the question: True or false: {symbol_1} is not {symbol_7}.",
+        "reasoning": "<think> Let's think about it step by step. First, we have {symbol_1} is a {symbol_2}.\n\nEvery {symbol_2} is a {symbol_3}. So {symbol_1} is a {symbol_3}.\n\n{symbol_3}s are {symbol_4}s. So {symbol_1} is a {symbol_4}.\n\nEvery {symbol_4} is an {symbol_9}. So {symbol_1} is an {symbol_9}.\n\n{symbol_9}s are {symbol_7}. So {symbol_1} is {symbol_7}.\n\nTherefore, the answer is False. </think>\n<answer> False </answer>"
     }
 ]

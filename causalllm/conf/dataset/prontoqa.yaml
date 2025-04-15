@@ -1,6 +1,6 @@
 name: "prontoqa"
 train_data: "prontoqa/prontoqa"
-anonymous_data_name: ${dataset.train_data}_${dataset.anonymizer_version}
+anonymous_suffix: ${dataset.anonymizer_version}
 percent_of_train_dataset: 0.005
 percent_of_test_dataset: 0.1
 use_special_template: false

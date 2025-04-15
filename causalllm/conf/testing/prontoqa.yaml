@@ -1,4 +1,6 @@
 test_data:
     - "prontoqa/prontoqa"
+    - "prontoqa/prontoqa-anticommonsense"
+    - "prontoqa/prontoqa-noncommonsense"
 test_batch_size: 32
 max_new_tokens: 1024

@@ -5,7 +5,7 @@ background+question: "{prompt}"
 Reasoning steps: "{response}"
 
 
-Transform all entities and adjectives into variable symbols, denoted in order as {symbol_1}, {symbol_2}, {symbol_3}, etc.
+Transform all entities and adjectives into variable symbols, denoted in order as {symbol_1}, {symbol_2}, {symbol_3}, etc. Each symbol represent one thing, like an object, an attribute, an adj. etc. Do not include "not" in the symbol name, e.g., "not small" should be transformed to "not {symbol_1}". Also, do not include determiners like "all", "each", "every" and linking verbs like "be", "is", "are" in the symbol names.
 Outputs the following information:
 1. Variable notations:
 - the variable symbol, e.g., {symbol_1}.

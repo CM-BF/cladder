@@ -14,6 +14,7 @@ from itertools import product
 from datasets import Dataset
 from statsmodels.gam.tests.test_penalized import file_path
 from tqdm import tqdm
+import json
 
 import torch
 from transformers import (
@@ -362,7 +363,7 @@ class CausalTrainer:
     def _prepare_data(self, data):
         """Prepare data for testing"""
         # Use the same preprocessing as for training
-        all_samples = list(map(lambda x: {k: v for k, v in x.items() if k != 'old'}, data))
+        all_samples = list(map(lambda x: {k: json.dumps(v) if isinstance(v, dict) else v for k, v in x.items() if k != 'old'}, data))
 
         # Filter based on test split if needed
         dataset = Dataset.from_list(all_samples)
@@ -397,7 +398,7 @@ class CausalTrainer:
 
         from causalllm.structured_data_template import Anonymizer
 
-        file_path = f'{ROOT_PATH}/data/{dataset_config.anonymous_data_name}'
+        file_path = f'{ROOT_PATH}/data/{data_name}_{dataset_config.anonymous_suffix}'
         data_file = Path(file_path + "_abstract.json")
         shuffled_file = Path(file_path + "_abstract_shuffled.json")
         invalid_data_file = Path(file_path + "_abstract_invalid.json")
@@ -418,12 +419,18 @@ class CausalTrainer:
         from efficiency.log import fread, show_var, fwrite, print_df_value_count
         if 'cladder' in data_name:
             dataset = DataFileList(data_name=data_name, shuffle=False, ask_about=self.cfg.experiment.ask_about).data_objs[0].data
+            text_interface.prepare_prompt_sft(dataset, reasoning=self.cfg.experiment.reasoning)
+            data = text_interface.data_in
         elif 'prontoqa' in data_name:
-            dataset = json.loads(Path(f'{ROOT_PATH}/data/{data_name}.json').read_text())['next_steps']
+            if 'commonsense' in data_name:
+                data = json.loads(Path(f'{ROOT_PATH}/data/{data_name}.json').read_text())
+            else:
+                dataset = json.loads(Path(f'{ROOT_PATH}/data/{data_name}.json').read_text())['next_steps']
+                text_interface.prepare_prompt_sft(dataset, reasoning=self.cfg.experiment.reasoning)
+                data = text_interface.data_in
         else:
             raise ValueError(f"Unknown dataset: {data_name}")
-        text_interface.prepare_prompt_sft(dataset, reasoning=self.cfg.experiment.reasoning)
-        data = text_interface.data_in
+
 
 
         # Setup agent with structured output
@@ -473,7 +480,8 @@ class CausalTrainer:
                         retry += 1
                         invalid = False
                         for v2n in response.variable2name:
-                            if (not v2n.name.isdigit()) and v2n.name not in ['age', 'treatment'] and (v2n.name in response.background_question or v2n.name in response.reasoning):
+                            if (not v2n.name.isdigit()) and v2n.name not in ['age', 'treatment'] and (v2n.name in response.background_question or v2n.name in response.reasoning)\
+                                    or ('prontoqa' in data_name and ('not' in v2n.name or 'every' in v2n.name or 'all' == v2n.name or 'each' in v2n.name or ' is ' in v2n.name or ' are ' in v2n.name)):
                                 invalid = True
                                 break
                     except Exception as e:
