@@ -15,8 +15,22 @@ import pandas as pd
 from itertools import product
 from datasets import Dataset, concatenate_datasets
 from statsmodels.gam.tests.test_penalized import file_path
+from sympy.polys.polyconfig import query
 from tqdm import tqdm
 import json
+
+from copy import deepcopy
+import random
+import asyncio
+from tqdm.asyncio import tqdm_asyncio
+from langchain.chat_models import init_chat_model
+from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
+from langgraph_builder import models
+from causalllm.structured_data_template import BinaryClassifier
+from causalllm.langgraph_builder import extractor_template
+
+from causalllm.structured_data_template import Anonymizer
+
 
 import torch
 from transformers import (
@@ -33,11 +47,15 @@ from causalllm.evaluate import Scorer
 from causalllm.prompt_utils import partial_replace, CladderTextInterface, ProntoQATextInterface
 from causalllm.definitions import ROOT_PATH, missing_step, paraphrase_i
 
+
+
 import logging
 
 logging.basicConfig(level=logging.DEBUG)
 logging.getLogger('httpx').setLevel(logging.WARNING)
 logging.getLogger('httpcore').setLevel(logging.WARNING)
+
+OmegaConf.register_new_resolver("bool2name", lambda flag, name: str(name) if flag else "")
 
 
 class CausalTrainer:
@@ -91,17 +109,23 @@ class CausalTrainer:
                 enable_cot=enable_cot,
                 given_cot_until_step=given_cot_until_step
             )
-
-
-        # Run testing if enabled
-        if not self.cfg.testing.only_test:
-            # Process each dataset file
-            self._perform_sft(model_name, text_interface, new_model)
+        else:
+            raise ValueError(f"Unknown dataset: {self.cfg.dataset.name}")
 
         scores = {}
+        if 'qwen' in model_name.lower():
+            assert enable_cot is False and enable_fewshot is False, "COT and Fewshot flags are for inference-only baselines"
+            # Run testing if enabled
+            if not self.cfg.testing.only_test:
+                # Process each dataset file
+                self._perform_sft(model_name, text_interface, new_model)
+        else:
+            assert model_name in models, f"Model {model_name} not found in {models.keys()}"
+
         for test_data in self.cfg.testing.test_data:
             score = self.test_model(model_name, new_model, test_data)
             scores[Path(test_data).parts[-1]] = score
+
         if not self.cfg.testing.only_test:
             wandb.log(scores)
             for test_name, score in scores.items():
@@ -109,6 +133,59 @@ class CausalTrainer:
 
         for test_name, score in scores.items():
             print(f"Final score of {test_name}: {score}")
+
+    def _gpt_inference(self, model_name, text_interface, test_data):
+
+        agent = models[model_name].with_retry()
+
+        semaphore = asyncio.Semaphore(100)
+
+        async def process_datum(datum):
+            async with semaphore:
+                extractor_model = models['gpt-4o-mini']
+                extractor = extractor_template | extractor_model.with_structured_output(
+                    schema=BinaryClassifier).with_retry()
+
+                messages = [
+                    SystemMessage(
+                        "You are an expert in causal inference. The following question is not a typical commonsense query, but rather a meticulously designed question created by a professor specializing in causal inference, intended to assess the students' mastery of the course content."),
+                ]
+
+                if self.cfg.experiment.enable_cot:
+                    human_message = f"{datum['raw_prompt']}\n\n{datum['cot']}"
+                    if self.cfg.experiment.enable_fewshot:
+                        human_message = f"{datum['cot_fewshot']}\n\n{human_message}"
+                    messages.append(HumanMessage(human_message))
+
+                    response = await agent.ainvoke(messages)
+                    messages.append(response)
+                    messages.append(
+                        HumanMessage(
+                            text_interface.q_type2prompt_suffix['cot_final']))
+                    final_response = await agent.ainvoke(messages)
+                    classification = await extractor.ainvoke({'text': final_response.content})
+                else:
+                    human_message = f"{datum['raw_prompt']}\n\n{datum['answer_suffix']}"
+                    if self.cfg.experiment.enable_fewshot:
+                        human_message = f"{datum['fewshot']}\n\n{human_message}"
+                    messages.append(HumanMessage(human_message))
+                    response = await agent.ainvoke(messages)
+                    classification = await extractor.ainvoke({'text': response.content})
+
+                datum['pred'] = classification.answer
+                return datum
+
+        # Process data in parallel with asyncio
+        async def process_all_data():
+            # Create tasks for all data items
+            tasks = [process_datum(datum) for datum in test_data]
+            # Gather results
+            processed_data = await tqdm_asyncio.gather(*tasks, desc=f'{model_name}', total=len(tasks))
+            return processed_data
+
+        # Run the processing
+        processed_data = asyncio.run(process_all_data())
+        return processed_data
 
 
 
@@ -229,14 +306,28 @@ class CausalTrainer:
 
     def format_dataset(self, dataset, dataset_config, training=True):
         # "prompt" is a special column key for SFTTrainer's data preprocessing
+        if 'qwen' not in self.cfg.model.name.lower():
+            # GPT models
+            query_suffix = 'answer_suffix'
+            output_key = 'direct_response'
+        else:
+            if self.cfg.experiment.reasoning:
+                query_suffix = 'thinking_answer_suffix'
+                output_key = 'abstract_reasoning' if dataset_config.anonymize else 'reasoning_response'
+            else:
+                query_suffix = 'direct_answer_suffix'
+                output_key = 'direct_response'
         if dataset_config.anonymize:
-            dataset = dataset.rename_columns({"abstract_prompt": "instruction", "abstract_reasoning": "output"})
+            dataset = dataset.map(lambda example: {'abstract_prompt': f"{example['abstract_raw_prompt']}\n\n{example[query_suffix]}"})
+            dataset = dataset.rename_columns({"abstract_prompt": "instruction", output_key: "output"})
             if training:
                 n = 10000 // len(dataset)
                 dataset = concatenate_datasets([dataset] * n)
             dataset = dataset.map(partial(self._replace_symbols, symbol_replacement=dataset_config.anonymize), desc="Replacing symbols in dataset")
         else:
-            dataset = dataset.rename_columns({"prompt": "instruction", "response": "output"})
+            dataset = dataset.map(
+                lambda example: {'prompt': f"{example['raw_prompt']}\n\n{example[query_suffix]}"})
+            dataset = dataset.rename_columns({"prompt": "instruction", output_key: "output"})
         if training:
             other_columns = [i for i in dataset.column_names if i not in ["instruction", "output"]]
             dataset = dataset.remove_columns(other_columns)
@@ -255,6 +346,8 @@ class CausalTrainer:
             letters = random.sample(string.ascii_uppercase, len(var2name_map))
         elif symbol_replacement == 'original':
             letters = [info['name'] for info in var2name_map.values()]
+        elif symbol_replacement == 'symbol':
+            letters = [info['variable'] for info in var2name_map.values()]
         else:
             raise ValueError(f"Unknown symbol replacement method: {symbol_replacement}")
         sym2letter = {info['variable'].strip('{}'): letter for info, letter in zip(var2name_map.values(), letters)}
@@ -299,17 +392,30 @@ class CausalTrainer:
         test_dataset = self.format_dataset(test_dataset, dataset_config=self.cfg.dataset, training=False)
         test_data = test_dataset.to_list()
 
+        if 'qwen' in model_name.lower():
+            self._sft_model_inference(model_name, new_model_name, test_config, test_data)
+        else:
+            test_data = self._gpt_inference(model_name, text_interface, test_data)
 
+
+        test_df = pd.DataFrame(test_data)
+        test_df.to_csv(text_interface.save_path, index=False)
+
+        text_interface.response_processor(model_version=f"{new_model_name}")
+
+        Scorer([text_interface.save_path], ask_about='answer', save_perfomance=text_interface.save_path, data_name=self.cfg.dataset.name)
+        score = pd.read_csv(text_interface.save_path).loc[0, "score"]
+        return score
+
+    def _sft_model_inference(self, model_name, new_model_name, test_config, test_data):
         # Determine model path
         if test_config.only_test:
             model_path = test_config.test_model_path
         else:
             model_path = self.output_dir / new_model_name
-
         # Load the model
         device_map = "auto" if torch.cuda.is_available() else None
         print(f"Loading model from {model_path}")
-
         # Setup quantization if needed
         if test_config.use_quantization:
             quant_config = self.cfg.quantization
@@ -349,9 +455,7 @@ class CausalTrainer:
                 trust_remote_code=self.cfg.model.trust_remote_code
             )
         tokenizer.padding_side = 'left'
-
         batch_size = test_config.test_batch_size
-
         for i in tqdm(range(0, len(test_data), batch_size), desc="Testing batches"):
             batch = test_data[i:i + batch_size]
             batch_queries = [item["instruction"] for item in batch]
@@ -371,16 +475,6 @@ class CausalTrainer:
             if i % (5 * batch_size) == 0 and batch:
                 print(
                     f"Sample Query: {batch_queries[0]}\n\nResponse: {batch_responses[0]}\n\nExtracted Answer: {test_data[i]['pred']}\n\nExpected Answer: {test_data[i]['truth']}\n\n")
-
-
-        test_df = pd.DataFrame(test_data)
-        test_df.to_csv(text_interface.save_path, index=False)
-
-        text_interface.response_processor(model_version=f"{new_model_name}")
-
-        Scorer([text_interface.save_path], ask_about='answer', save_perfomance=text_interface.save_path, data_name=self.cfg.dataset.name)
-        score = pd.read_csv(text_interface.save_path).loc[0, "score"]
-        return score
 
     def _prepare_data(self, data):
         """Prepare data for testing"""
@@ -409,16 +503,6 @@ class CausalTrainer:
         return train_dataset, test_dataset
 
     def _anonymize_data(self, data_name, dataset_config, text_interface):
-        from copy import deepcopy
-        import json
-        import random
-        import asyncio
-        from tqdm.asyncio import tqdm_asyncio
-        from langchain.chat_models import init_chat_model
-        from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
-        from pathlib import Path
-
-        from causalllm.structured_data_template import Anonymizer
 
         file_path = f'{ROOT_PATH}/data/{data_name}_{dataset_config.anonymous_suffix}'
         data_file = Path(file_path + "_abstract.json")
@@ -430,14 +514,6 @@ class CausalTrainer:
             data = json.loads(json_data)
             return data
 
-        models = {'gpt-4o-mini': init_chat_model("gpt-4o-mini", model_provider="openai"),
-                  'gpt-4o': init_chat_model("gpt-4o", model_provider="openai"),
-                  'o1': init_chat_model("o1", model_provider="openai"),
-                  'o1-mini': init_chat_model("o1-mini", model_provider="openai"),
-                  'o3-mini': init_chat_model("o3-mini", model_provider="openai"),
-                  'gpt-4': init_chat_model("gpt-4", model_provider="openai"),
-                  'gpt-3.5-turbo': init_chat_model("gpt-3.5-turbo", model_provider="openai")}
-
         from efficiency.log import fread, show_var, fwrite, print_df_value_count
         if 'cladder' in data_name:
             dataset = DataFileList(data_name=data_name, shuffle=False, ask_about=self.cfg.experiment.ask_about).data_objs[0].data
@@ -446,6 +522,16 @@ class CausalTrainer:
         elif 'prontoqa' in data_name:
             if 'commonsense' in data_name:
                 data = json.loads(Path(f'{ROOT_PATH}/data/{data_name}.json').read_text())
+                for datum in data:
+                    direct_response = text_interface.compose_response(datum, reasoning=False)
+                    q_type2prompt_suffix = text_interface.q_type2prompt_suffix
+                    datum.update({
+                        'answer_suffix': q_type2prompt_suffix['answer'],
+                        'direct_answer_suffix': q_type2prompt_suffix['direct_answer'],
+                        'thinking_answer_suffix': q_type2prompt_suffix['thinking_answer'],
+                        'direct_response': direct_response,
+                        'reasoning_response': datum['response'],
+                    })
             else:
                 dataset = json.loads(Path(f'{ROOT_PATH}/data/{data_name}.json').read_text())['next_steps']
                 text_interface.prepare_prompt_sft(dataset, reasoning=self.cfg.experiment.reasoning)
@@ -487,7 +573,7 @@ class CausalTrainer:
                 messages.append(
                     HumanMessage(partial_replace(user_message, {
                         'prompt': datum['raw_prompt'],
-                        'response': datum['response'],
+                        'response': datum['reasoning_response'],
                     })),
                 )
 
@@ -515,7 +601,6 @@ class CausalTrainer:
                 var2name_map = {i.name: i.dict() for i in response.variable2name}
                 result.update({
                     'abstract_raw_prompt': response.background_question,
-                    'abstract_prompt':  f'{response.background_question}\n\n{datum["query_suffix"]}',
                     'abstract_reasoning': response.reasoning,
                     'var2name_map': var2name_map,
                     'abstract_valid': not invalid,

@@ -74,7 +74,7 @@ quantization:
 
 hydra:
     run:
-        dir: ${output.root_path}/outputs/${model.name}_${now:%Y%m%d%H%M%S}
+        dir: ${output.root_path}/outputs/${model.new_model}  # ${model.name}_${now:%Y%m%d%H%M%S}
     sweep:
         dir: ${output.root_path}/multirun/${now:%Y%m%d}
         subdir: ${hydra.job.override_dirname}

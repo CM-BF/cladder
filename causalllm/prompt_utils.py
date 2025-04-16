@@ -1,4 +1,5 @@
 import json
+import random
 import re
 import warnings
 from collections import defaultdict
@@ -93,22 +94,45 @@ class TextInterface:
 
 
 class ProntoQATextInterface(TextInterface):
+    system_prompt = "You are an expert in logic reasoning. Your task is to answer a logic question based on the given facts."
 
+    prefix2norm = {
+        'True': 1,
+        'False': 0,
+    }
     def __init__(self, save_path, ask_about=None, enable_fewshot=False, enable_cot=False, given_cot_until_step=None):
         super().__init__(save_path)
-        self.prefix2norm = {
-            'True': 1,
-            'False': 0,
-        }
+
         from efficiency.log import verbalize_list_of_options
         self.q_type2prompt_suffix = {
             'answer': f'Start your answer with {verbalize_list_of_options(self.prefix2norm)}, followed by additional reasoning or evidence'
                       f' to support your explanation.',
             'direct_answer': f'Answer the question using only {verbalize_list_of_options(self.prefix2norm)}.',
             'thinking_answer': f'Show your work in <think> </think> tags. And return the final answer {verbalize_list_of_options(self.prefix2norm)} in <answer> </answer> tags, for example <answer> True </answer>',
-            'cot_final': 'Based on all the reasoning above, output one word to answer the initial question {question} with just ' + verbalize_list_of_options(
+            'cot': "Guidance: Address the question by following the steps below:\n\n1. List the given claim and the facts.\n\n2. Deduce claims using the facts.\n\n3. Answer the question based on the reasoning.\n\n4. The answer is either True or False.",
+            'cot_final': 'Based on all the reasoning above, output one word to answer the initial question with just ' + verbalize_list_of_options(
                 self.prefix2norm),
         }
+
+    def _prepare_fewshot(self, data):
+        r'''
+        Compose few-shot examples for each query type
+        '''
+
+        data_ids = random.Random(123).sample(list(range(len(data))), 30)
+        # from efficiency.function import flatten_list
+        # example_ids = flatten_list(self.fewshot_examples.values())
+        id2datum = {i: data[i] for i in data_ids}
+        self.fewshot_id2datum = id2datum
+        self.id2fewshotprompt = {id: [self.compose_raw_query(datum) + '\n\n' + self.compose_response(datum, reasoning=False),
+                                      self.compose_raw_query(datum) + '\n\n' + self.compose_response(datum, reasoning=True)] for id, datum in id2datum.items()}
+
+    def _compose_fewshot_prefix(self, datum, cot=False):
+        sample_ids = random.sample(list(self.fewshot_id2datum.keys()), 3)
+        cot = int(cot)
+        few_shot_prompts = [self.id2fewshotprompt[i][cot] for i in sample_ids]
+        few_shot_prompt = '\n----------\n'.join(few_shot_prompts) + '\n----------\n'
+        return few_shot_prompt
 
     def get_cot_prompt(self, sampled_data):
         formatted_examples = ""
@@ -123,6 +147,9 @@ class ProntoQATextInterface(TextInterface):
 
     def prepare_prompt_sft(self, list_of_dicts, reasoning=False):
         if list_of_dicts is not None:
+            for datum in list_of_dicts:
+                datum['truth'] = str(not (("not" in datum['claims'][-1]) ^ ("not" in datum['Query'])))
+            self._prepare_fewshot(list_of_dicts)
             self.data_in = self.prompt_composer_sft(list_of_dicts, reasoning=reasoning)
 
     def prompt_composer_sft(self, data, ask_about='answer', reasoning=False):
@@ -131,22 +158,33 @@ class ProntoQATextInterface(TextInterface):
             datum['truth'] = str(not (("not" in datum['claims'][-1]) ^ ("not" in datum['Query'])))
             truth_norm = self.convert_truth_to_norm(datum['truth'])
             # -- Complete all thoughts: Change {var_notions} to e.g. Use "X" to represent "eating citrus". Use "V2" to represent "vitmain C". Use "Y" to represent "curly hair" --
-            default_query_suffix = self.q_type2prompt_suffix['thinking_answer'] if reasoning else self.q_type2prompt_suffix['direct_answer']
-            # TODO: add few-shot to prompt here.
-            datum['raw_prompt'] =  f"Given facts: {datum['Facts']}\n\nGiven {datum['claims'][0].strip('.')}, answer the question: {datum['Query']}"
-            prompt = f"{datum['raw_prompt']}\n\n{default_query_suffix}"  # Simpliest prompt: Background + Answer_requirement
+            q2prompt = deepcopy(self.q_type2prompt_suffix)
+            # q2prompt = {k: v.format(var_notions=self._datum2var_notions(datum, keep_var_values=k == 'given_info'),
+            #                         question=datum['old']['question'])
+            #             for k, v in q2prompt.items()
+            #             }
+            datum['raw_prompt'] = self.compose_raw_query(datum)
 
-            response = self.compose_response(datum, reasoning=reasoning)
+            direct_response = self.compose_response(datum, reasoning=False)
+            reasoning_response = self.compose_response(datum, reasoning=True)
 
             # del datum['raw_prompt'], datum['raw_prompt_without_q'], datum['old']
             datum.update({
-                'prompt': prompt,
-                'query_suffix': default_query_suffix,
-                'response': response,
+                'cot': q2prompt['cot'],
+                'fewshot': self._compose_fewshot_prefix(datum, cot=False),
+                'cot_fewshot': self._compose_fewshot_prefix(datum, cot=True),
+                'answer_suffix': self.q_type2prompt_suffix['answer'],
+                'direct_answer_suffix': self.q_type2prompt_suffix['direct_answer'],
+                'thinking_answer_suffix': self.q_type2prompt_suffix['thinking_answer'],
+                'direct_response': direct_response,
+                'reasoning_response': reasoning_response,
                 'truth_norm': truth_norm,
             })
 
         return data
+
+    def compose_raw_query(self, datum):
+        return f"Given facts: {datum['Facts']}\n\nGiven {datum['claims'][0].strip('.')}, answer the question: {datum['Query']}"
 
     def compose_response(self, datum, reasoning):
         if not reasoning:
@@ -210,6 +248,8 @@ class CladderTextInterface (TextInterface):
         'det-counterfactual': 'normal counterfactual question'
     }
 
+    system_prompt = "You are an expert in causal inference. The following question is not a typical commonsense query, but rather a meticulously designed question created by a professor specializing in causal inference, intended to assess the students' mastery of the course content."
+
 
     def init_prompt(self):
         r'''
@@ -256,7 +296,7 @@ class CladderTextInterface (TextInterface):
             'estimand': 'Given all the information above, deduce the estimand using skills such as do-calculus, counterfactual prediction, and the basics of probabilities. Answer step by step.',
             'estimate': 'Insert the relevant data into the estimand, perform basic arithmetic calculations, and derive the '
                           'final answer. Answer step by step.',
-            'cot_final': 'Based on all the reasoning above, output one word to answer the initial question {question} with just ' + verbalize_list_of_options(self.prefix2norm),
+            'cot_final': 'Based on all the reasoning above, output one word to answer the initial question with just ' + verbalize_list_of_options(self.prefix2norm),
         }
         self.prefix2norm.update({i: -1 for i in self.refusal_to_answer_prefices})
         self.prefix2norm = dict(sorted(self.prefix2norm.items(), key=lambda i: len(i[0]), reverse=True))
@@ -275,6 +315,7 @@ class CladderTextInterface (TextInterface):
 
     def prepare_prompt_sft(self, list_of_dicts, reasoning=False):
         if list_of_dicts is not None:
+            self._prepare_fewshot(list_of_dicts)
             self.data_in = self.prompt_composer_sft(list_of_dicts, self.ask_about, reasoning=reasoning)
 
     def _datum2var_notions(self, datum, keep_var_values=False):
@@ -298,27 +339,43 @@ class CladderTextInterface (TextInterface):
         r'''
         Compose few-shot examples for each query type
         '''
-        self.fewshot_examples = {'correlation': [20946, 22532, 14193],
-                                 'ate': [2023, 28681, 27304],
-                                 'marginal': [26874, 25572, 16429],
-                                 'backadj': [21850, 25098, 5150],
-                                 'ett': [19688, 15380, 16853],
-                                 'det-counterfactual': [29884, 30531, 30821],
-                                 'nde': [7775, 13272, 16351],
-                                 'nie': [24877, 17209, 28444],
-                                 'exp_away': [17817, 11920, 1935],
-                                 'collider_bias': [6720, 7458, 2681]}
+        # self.fewshot_examples = {'correlation': [20946, 22532, 14193],
+        #                          'ate': [2023, 28681, 27304],
+        #                          'marginal': [26874, 25572, 16429],
+        #                          'backadj': [21850, 25098, 5150],
+        #                          'ett': [19688, 15380, 16853],
+        #                          'det-counterfactual': [29884, 30531, 30821],
+        #                          'nde': [7775, 13272, 16351],
+        #                          'nie': [24877, 17209, 28444],
+        #                          'exp_away': [17817, 11920, 1935],
+        #                          'collider_bias': [6720, 7458, 2681]}
+        few_shot_class = ['correlation', 'ate', 'marginal', 'backadj', 'ett', 'det-counterfactual', 'nde', 'nie', 'exp_away', 'collider_bias']
+        self.fewshot_examples = {k: [] for k in few_shot_class}
+        left_class = set(few_shot_class)
+        import random
+        data_indices = list(range(len(data)))
+        random.Random(123).shuffle(data_indices)
+        for i in data_indices:
+            datum = data[i]
+            if datum['query_type'] in left_class:
+                self.fewshot_examples[datum['query_type']].append(datum['question_id'])
+                if len(self.fewshot_examples[datum['query_type']]) >= 3:
+                    left_class.remove(datum['query_type'])
+            if not left_class:
+                break
         from efficiency.function import flatten_list
         example_ids = flatten_list(self.fewshot_examples.values())
         id2datum = {i['question_id']: i for i in data if i['question_id'] in example_ids}
         self.fewshot_id2datum = id2datum
         ask_about_step = QAComposer.known_steps.index(self.ask_about) if self.ask_about != 'answer' else len(QAComposer.known_steps)
-        self.id2fewshotprompt = {id: QAComposer(self).compose_qa_pair(datum, self.enable_cot, guide_cot_until_step=ask_about_step) for id, datum in id2datum.items()}
+        self.id2fewshotprompt = {id: [QAComposer(self).compose_qa_pair(datum, enable_cot=False, guide_cot_until_step=ask_about_step),
+                                      QAComposer(self).compose_qa_pair(datum, enable_cot=True, guide_cot_until_step=ask_about_step)] for id, datum in id2datum.items()}
 
-    def _compose_fewshot_prefix(self, datum):
+    def _compose_fewshot_prefix(self, datum, cot=False):
         exclude_id = datum['question_id']
         examples = {k: [i for i in v if i != exclude_id][0] for k, v in self.fewshot_examples.items()}
-        few_shot_prompt = [self.id2fewshotprompt[i] for i in examples.values()]
+        cot = int(cot)
+        few_shot_prompt = [self.id2fewshotprompt[i][cot] for i in examples.values()]
         few_shot_prompt = '\n----------\n'.join(few_shot_prompt) + '\n----------\n'
         return few_shot_prompt
 
@@ -362,23 +419,28 @@ class CladderTextInterface (TextInterface):
             truth_norm = self.convert_truth_to_norm(datum['truth'])
             # -- Complete all thoughts: Change {var_notions} to e.g. Use "X" to represent "eating citrus". Use "V2" to represent "vitmain C". Use "Y" to represent "curly hair" --
             q2prompt = deepcopy(self.q_type2prompt_suffix)
-            q2prompt['answer'] = q2prompt['thinking_answer'] if reasoning else q2prompt['direct_answer']
             q2prompt = {k: v.format(var_notions=self._datum2var_notions(datum, keep_var_values=k == 'given_info'),
                                     question=datum['old']['question'])
                         for k, v in q2prompt.items()
                         }
             default_query_suffix = q2prompt[ask_about]
-            key = 'raw_prompt_without_q' if ask_about in {'graph', 'given_info'} else 'raw_prompt'
-            # TODO: add few-shot to prompt here.
-            prompt = f"{datum[key]}\n\n{default_query_suffix}" # Simpliest prompt: Background + Answer_requirement
+            # key = 'raw_prompt_without_q' if ask_about in {'graph', 'given_info'} else 'raw_prompt'
+            # prompt = f"{datum[key]}\n\n{default_query_suffix}" # Simpliest prompt: Background + Answer_requirement
 
-            response = QAComposer(self).compose_response(datum, reasoning=reasoning)
+            # response = QAComposer(self).compose_response(datum, reasoning=reasoning)
+            direct_response = QAComposer(self).compose_response(datum, reasoning=False)
+            reasoning_response = QAComposer(self).compose_response(datum, reasoning=True)
 
             # del datum['raw_prompt'], datum['raw_prompt_without_q'], datum['old']
             datum.update({
-                'prompt': prompt,
-                'query_suffix': default_query_suffix,
-                'response': response,
+                'cot': q2prompt['cot'],
+                'fewshot': self._compose_fewshot_prefix(datum, cot=False),
+                'cot_fewshot': self._compose_fewshot_prefix(datum, cot=True),
+                'answer_suffix': self.q_type2prompt_suffix['answer'],
+                'direct_answer_suffix': self.q_type2prompt_suffix['direct_answer'],
+                'thinking_answer_suffix': self.q_type2prompt_suffix['thinking_answer'],
+                'direct_response': direct_response,
+                'reasoning_response': reasoning_response,
                 'truth_norm': truth_norm,
             })
 

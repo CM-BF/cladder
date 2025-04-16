@@ -44,4 +44,4 @@ class Reflector(BaseModel):
     input_feedbacks: List[InputFeedback]
 
 class BinaryClassifier(BaseModel):
-    answer: str = Field(None, enum=['yes', 'no'], description="The final answer for the binary classification task.")
+    answer: str = Field(None, enum=['yes', 'no', 'true', 'false'], description="The final answer for the binary classification task.")

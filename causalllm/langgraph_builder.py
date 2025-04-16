@@ -9,6 +9,7 @@ from pathlib import Path
 from causalllm.prompt_utils import partial_replace
 from pydantic import Field, create_model
 import openai
+from definitions import ROOT_PATH
 
 models = {'gpt-4o-mini': init_chat_model("gpt-4o-mini", model_provider="openai"),
           'gpt-4o': init_chat_model("gpt-4o", model_provider="openai"),
@@ -18,7 +19,7 @@ models = {'gpt-4o-mini': init_chat_model("gpt-4o-mini", model_provider="openai")
           'gpt-4': init_chat_model("gpt-4", model_provider="openai"),
           'gpt-3.5-turbo': init_chat_model("gpt-3.5-turbo", model_provider="openai")}
 extractor_template = ChatPromptTemplate.from_messages([
-                    ("system", Path('agents/general/extractor_system.txt').read_text()),
+                    ("system", Path(ROOT_PATH, 'causalllm/agents/general/extractor_system.txt').read_text()),
                     ("human", "{text}")
                 ])
 
