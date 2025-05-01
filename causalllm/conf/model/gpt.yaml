@@ -1,4 +1,4 @@
 # conf/model/qwen.yaml
 name: "gpt-4o-mini"
-new_model: ${model.name}-${dataset.name}${bool2name:${experiment.enable_cot}, "-cot"}}${bool2name:${experiment.enable_fewshot}, "-fs"}}
+new_model: GPT_test/${model.name}-${dataset.name}${bool2name:${experiment.enable_cot}, "-cot"}${bool2name:${experiment.enable_fewshot}, "-fs"}
 trust_remote_code: true

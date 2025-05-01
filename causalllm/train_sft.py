@@ -121,6 +121,7 @@ class CausalTrainer:
                 self._perform_sft(model_name, text_interface, new_model)
         else:
             assert model_name in models, f"Model {model_name} not found in {models.keys()}"
+            wandb.init(name=new_model)
 
         for test_data in self.cfg.testing.test_data:
             score = self.test_model(model_name, new_model, test_data)
@@ -522,16 +523,6 @@ class CausalTrainer:
         elif 'prontoqa' in data_name:
             if 'commonsense' in data_name:
                 data = json.loads(Path(f'{ROOT_PATH}/data/{data_name}.json').read_text())
-                for datum in data:
-                    direct_response = text_interface.compose_response(datum, reasoning=False)
-                    q_type2prompt_suffix = text_interface.q_type2prompt_suffix
-                    datum.update({
-                        'answer_suffix': q_type2prompt_suffix['answer'],
-                        'direct_answer_suffix': q_type2prompt_suffix['direct_answer'],
-                        'thinking_answer_suffix': q_type2prompt_suffix['thinking_answer'],
-                        'direct_response': direct_response,
-                        'reasoning_response': datum['response'],
-                    })
             else:
                 dataset = json.loads(Path(f'{ROOT_PATH}/data/{data_name}.json').read_text())['next_steps']
                 text_interface.prepare_prompt_sft(dataset, reasoning=self.cfg.experiment.reasoning)
