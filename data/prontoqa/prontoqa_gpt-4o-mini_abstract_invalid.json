@@ -1,0 +1,500 @@
+[
+    {
+        "Facts": "Every carnivore is a mammal. Animals are multicellular. Every vertebrate is a chordate. Every carnivore is not herbivorous. Each snake is not furry. Every cat is a feline. Chordates are bilaterians. Each feline is a carnivore. Mammals are vertebrates. Mammals are furry. Bilaterians are animals. Every tabby is a cat.",
+        "Query": "True or false: Wren is furry.",
+        "claims": [
+            "Wren is a tabby.",
+            "Wren is a cat.",
+            "Wren is a feline.",
+            "Wren is a carnivore.",
+            "Wren is a mammal.",
+            "Wren is furry."
+        ],
+        "next_steps": [
+            "Every tabby is a cat.",
+            "Every cat is a feline.",
+            "Each feline is a carnivore.",
+            "Every carnivore is a mammal.",
+            "Mammals are furry.",
+            "Finish."
+        ],
+        "truth": "True",
+        "raw_prompt": "Given facts: Every carnivore is a mammal. Animals are multicellular. Every vertebrate is a chordate. Every carnivore is not herbivorous. Each snake is not furry. Every cat is a feline. Chordates are bilaterians. Each feline is a carnivore. Mammals are vertebrates. Mammals are furry. Bilaterians are animals. Every tabby is a cat.\n\nGiven Wren is a tabby, answer the question: True or false: Wren is furry.",
+        "prompt": "Given facts: Every carnivore is a mammal. Animals are multicellular. Every vertebrate is a chordate. Every carnivore is not herbivorous. Each snake is not furry. Every cat is a feline. Chordates are bilaterians. Each feline is a carnivore. Mammals are vertebrates. Mammals are furry. Bilaterians are animals. Every tabby is a cat.\n\nGiven Wren is a tabby, answer the question: True or false: Wren is furry.\n\nShow your work in <think> </think> tags. And return the final answer \"True\" or \"False\" in <answer> </answer> tags, for example <answer> True </answer>",
+        "query_suffix": "Show your work in <think> </think> tags. And return the final answer \"True\" or \"False\" in <answer> </answer> tags, for example <answer> True </answer>",
+        "response": "<think> Let's think about it step by step. First, we have Wren is a tabby.\n\nEvery tabby is a cat. So Wren is a cat.\n\nEvery cat is a feline. So Wren is a feline.\n\nEach feline is a carnivore. So Wren is a carnivore.\n\nEvery carnivore is a mammal. So Wren is a mammal.\n\nMammals are furry. So Wren is furry.\n\nTherefore, the answer is True. </think>\n<answer> True </answer>",
+        "truth_norm": 1,
+        "abstract_raw_prompt": "Given facts: Every {symbol_5} is a {symbol_6}. {symbol_13}s are multicellular. Every {symbol_8} is a {symbol_9}. Every {symbol_5} is not {symbol_11}. Each {symbol_12} is not furry. Every {symbol_3} is a {symbol_4}. {symbol_9}s are {symbol_10}s. Each {symbol_4} is a {symbol_5}. {symbol_6}s are {symbol_8}. {symbol_6}s are furry. {symbol_10}s are {symbol_13}s. Every {symbol_2} is a {symbol_3}.\n\nGiven {symbol_1} is a {symbol_2}, answer the question: True or false: {symbol_1} is {symbol_7}.",
+        "abstract_prompt": "Given facts: Every {symbol_5} is a {symbol_6}. {symbol_13}s are multicellular. Every {symbol_8} is a {symbol_9}. Every {symbol_5} is not {symbol_11}. Each {symbol_12} is not furry. Every {symbol_3} is a {symbol_4}. {symbol_9}s are {symbol_10}s. Each {symbol_4} is a {symbol_5}. {symbol_6}s are {symbol_8}. {symbol_6}s are furry. {symbol_10}s are {symbol_13}s. Every {symbol_2} is a {symbol_3}.\n\nGiven {symbol_1} is a {symbol_2}, answer the question: True or false: {symbol_1} is {symbol_7}.\n\nShow your work in <think> </think> tags. And return the final answer \"True\" or \"False\" in <answer> </answer> tags, for example <answer> True </answer>",
+        "abstract_reasoning": "<think> Let's think about it step by step. First, we have {symbol_1} is a {symbol_2}.\n\nEvery {symbol_2} is a {symbol_3}. So {symbol_1} is a {symbol_3}.\n\nEvery {symbol_3} is a {symbol_4}. So {symbol_1} is a {symbol_4}.\n\nEach {symbol_4} is a {symbol_5}. So {symbol_1} is a {symbol_5}.\n\nEvery {symbol_5} is a {symbol_6}. So {symbol_1} is a {symbol_6}.\n\n{symbol_6}s are {symbol_7}. So {symbol_1} is {symbol_7}.\n\nTherefore, the answer is True. </think>\n<answer> True </answer>",
+        "var2name_map": {
+            "Wren": {
+                "variable": "{symbol_1}",
+                "name": "Wren",
+                "set_description": null,
+                "unset_description": null
+            },
+            "tabby": {
+                "variable": "{symbol_2}",
+                "name": "tabby",
+                "set_description": null,
+                "unset_description": null
+            },
+            "cat": {
+                "variable": "{symbol_3}",
+                "name": "cat",
+                "set_description": null,
+                "unset_description": null
+            },
+            "feline": {
+                "variable": "{symbol_4}",
+                "name": "feline",
+                "set_description": null,
+                "unset_description": null
+            },
+            "carnivore": {
+                "variable": "{symbol_5}",
+                "name": "carnivore",
+                "set_description": null,
+                "unset_description": null
+            },
+            "mammal": {
+                "variable": "{symbol_6}",
+                "name": "mammal",
+                "set_description": null,
+                "unset_description": null
+            },
+            "furry": {
+                "variable": "{symbol_7}",
+                "name": "furry",
+                "set_description": null,
+                "unset_description": null
+            },
+            "vertebrate": {
+                "variable": "{symbol_8}",
+                "name": "vertebrate",
+                "set_description": null,
+                "unset_description": null
+            },
+            "chordate": {
+                "variable": "{symbol_9}",
+                "name": "chordate",
+                "set_description": null,
+                "unset_description": null
+            },
+            "bilaterian": {
+                "variable": "{symbol_10}",
+                "name": "bilaterian",
+                "set_description": null,
+                "unset_description": null
+            },
+            "herbivorous": {
+                "variable": "{symbol_11}",
+                "name": "herbivorous",
+                "set_description": null,
+                "unset_description": null
+            },
+            "snake": {
+                "variable": "{symbol_12}",
+                "name": "snake",
+                "set_description": null,
+                "unset_description": null
+            },
+            "animal": {
+                "variable": "{symbol_13}",
+                "name": "animal",
+                "set_description": null,
+                "unset_description": null
+            }
+        },
+        "abstract_valid": false
+    },
+    {
+        "Facts": "Every animal is not unicellular. Each insect is six-legged. Protostomes are invertebrates. Insects are arthropods. Painted ladies are butterflies. Arthropods are segmented. Each nematode is not segmented. Butterflies are lepidopterans. Lepidopterans are insects. Invertebrates are animals. Every arthropod is a protostome.",
+        "Query": "True or false: Max is not segmented.",
+        "claims": [
+            "Max is a painted lady.",
+            "Max is a butterfly.",
+            "Max is a lepidopteran.",
+            "Max is an insect.",
+            "Max is an arthropod.",
+            "Max is segmented."
+        ],
+        "next_steps": [
+            "Painted ladies are butterflies.",
+            "Butterflies are lepidopterans.",
+            "Lepidopterans are insects.",
+            "Insects are arthropods.",
+            "Arthropods are segmented.",
+            "Finish."
+        ],
+        "truth": "False",
+        "raw_prompt": "Given facts: Every animal is not unicellular. Each insect is six-legged. Protostomes are invertebrates. Insects are arthropods. Painted ladies are butterflies. Arthropods are segmented. Each nematode is not segmented. Butterflies are lepidopterans. Lepidopterans are insects. Invertebrates are animals. Every arthropod is a protostome.\n\nGiven Max is a painted lady, answer the question: True or false: Max is not segmented.",
+        "prompt": "Given facts: Every animal is not unicellular. Each insect is six-legged. Protostomes are invertebrates. Insects are arthropods. Painted ladies are butterflies. Arthropods are segmented. Each nematode is not segmented. Butterflies are lepidopterans. Lepidopterans are insects. Invertebrates are animals. Every arthropod is a protostome.\n\nGiven Max is a painted lady, answer the question: True or false: Max is not segmented.\n\nShow your work in <think> </think> tags. And return the final answer \"True\" or \"False\" in <answer> </answer> tags, for example <answer> True </answer>",
+        "query_suffix": "Show your work in <think> </think> tags. And return the final answer \"True\" or \"False\" in <answer> </answer> tags, for example <answer> True </answer>",
+        "response": "<think> Let's think about it step by step. First, we have Max is a painted lady.\n\nPainted ladies are butterflies. So Max is a butterfly.\n\nButterflies are lepidopterans. So Max is a lepidopteran.\n\nLepidopterans are insects. So Max is an insect.\n\nInsects are arthropods. So Max is an arthropod.\n\nArthropods are segmented. So Max is segmented.\n\nTherefore, the answer is False. </think>\n<answer> False </answer>",
+        "truth_norm": 0,
+        "abstract_raw_prompt": "Given facts: Every {symbol_10} is not unicellular. Each {symbol_5} is six-legged. {symbol_8} are {symbol_9}. {symbol_5} are {symbol_6}. {symbol_2} are {symbol_3}. {symbol_6} are segmented. Each {symbol_11} is not segmented. {symbol_3} are {symbol_4}. {symbol_4} are {symbol_5}. {symbol_9} are {symbol_10}. Every {symbol_6} is a {symbol_8}.\n\nGiven {symbol_1} is a {symbol_2}, answer the question: True or false: {symbol_1} is not {symbol_7}.",
+        "abstract_prompt": "Given facts: Every {symbol_10} is not unicellular. Each {symbol_5} is six-legged. {symbol_8} are {symbol_9}. {symbol_5} are {symbol_6}. {symbol_2} are {symbol_3}. {symbol_6} are segmented. Each {symbol_11} is not segmented. {symbol_3} are {symbol_4}. {symbol_4} are {symbol_5}. {symbol_9} are {symbol_10}. Every {symbol_6} is a {symbol_8}.\n\nGiven {symbol_1} is a {symbol_2}, answer the question: True or false: {symbol_1} is not {symbol_7}.\n\nShow your work in <think> </think> tags. And return the final answer \"True\" or \"False\" in <answer> </answer> tags, for example <answer> True </answer>",
+        "abstract_reasoning": "<think> Let's think about it step by step. First, we have {symbol_1} is a {symbol_2}.\n\n{symbol_2} are {symbol_3}. So {symbol_1} is a {symbol_3}.\n\n{symbol_3} are {symbol_4}. So {symbol_1} is a {symbol_4}.\n\n{symbol_4} are {symbol_5}. So {symbol_1} is an {symbol_5}.\n\n{symbol_5} are {symbol_6}. So {symbol_1} is an {symbol_6}.\n\n{symbol_6} are {symbol_7}. So {symbol_1} is {symbol_7}.\n\nTherefore, the answer is False. </think>\n<answer> False </answer>",
+        "var2name_map": {
+            "Max": {
+                "variable": "{symbol_1}",
+                "name": "Max",
+                "set_description": null,
+                "unset_description": null
+            },
+            "painted lady": {
+                "variable": "{symbol_2}",
+                "name": "painted lady",
+                "set_description": null,
+                "unset_description": null
+            },
+            "butterfly": {
+                "variable": "{symbol_3}",
+                "name": "butterfly",
+                "set_description": null,
+                "unset_description": null
+            },
+            "lepidopteran": {
+                "variable": "{symbol_4}",
+                "name": "lepidopteran",
+                "set_description": null,
+                "unset_description": null
+            },
+            "insect": {
+                "variable": "{symbol_5}",
+                "name": "insect",
+                "set_description": null,
+                "unset_description": null
+            },
+            "arthropod": {
+                "variable": "{symbol_6}",
+                "name": "arthropod",
+                "set_description": null,
+                "unset_description": null
+            },
+            "segmented": {
+                "variable": "{symbol_7}",
+                "name": "segmented",
+                "set_description": null,
+                "unset_description": null
+            },
+            "protostome": {
+                "variable": "{symbol_8}",
+                "name": "protostome",
+                "set_description": null,
+                "unset_description": null
+            },
+            "invertebrate": {
+                "variable": "{symbol_9}",
+                "name": "invertebrate",
+                "set_description": null,
+                "unset_description": null
+            },
+            "animal": {
+                "variable": "{symbol_10}",
+                "name": "animal",
+                "set_description": null,
+                "unset_description": null
+            },
+            "nematode": {
+                "variable": "{symbol_11}",
+                "name": "nematode",
+                "set_description": null,
+                "unset_description": null
+            }
+        },
+        "abstract_valid": false
+    },
+    {
+        "Facts": "Each insect is an arthropod. Butterflies are lepidopterans. Insects are not eight-legged. Painted ladies are butterflies. Arthropods are protostomes. Each nematode is not segmented. Protostomes are invertebrates. Every animal is not unicellular. Each lepidopteran is an insect. Every arthropod is segmented. Each invertebrate is an animal.",
+        "Query": "True or false: Rex is not segmented.",
+        "claims": [
+            "Rex is a painted lady.",
+            "Rex is a butterfly.",
+            "Rex is a lepidopteran.",
+            "Rex is an insect.",
+            "Rex is an arthropod.",
+            "Rex is segmented."
+        ],
+        "next_steps": [
+            "Painted ladies are butterflies.",
+            "Butterflies are lepidopterans.",
+            "Each lepidopteran is an insect.",
+            "Each insect is an arthropod.",
+            "Every arthropod is segmented.",
+            "Finish."
+        ],
+        "truth": "False",
+        "raw_prompt": "Given facts: Each insect is an arthropod. Butterflies are lepidopterans. Insects are not eight-legged. Painted ladies are butterflies. Arthropods are protostomes. Each nematode is not segmented. Protostomes are invertebrates. Every animal is not unicellular. Each lepidopteran is an insect. Every arthropod is segmented. Each invertebrate is an animal.\n\nGiven Rex is a painted lady, answer the question: True or false: Rex is not segmented.",
+        "prompt": "Given facts: Each insect is an arthropod. Butterflies are lepidopterans. Insects are not eight-legged. Painted ladies are butterflies. Arthropods are protostomes. Each nematode is not segmented. Protostomes are invertebrates. Every animal is not unicellular. Each lepidopteran is an insect. Every arthropod is segmented. Each invertebrate is an animal.\n\nGiven Rex is a painted lady, answer the question: True or false: Rex is not segmented.\n\nShow your work in <think> </think> tags. And return the final answer \"True\" or \"False\" in <answer> </answer> tags, for example <answer> True </answer>",
+        "query_suffix": "Show your work in <think> </think> tags. And return the final answer \"True\" or \"False\" in <answer> </answer> tags, for example <answer> True </answer>",
+        "response": "<think> Let's think about it step by step. First, we have Rex is a painted lady.\n\nPainted ladies are butterflies. So Rex is a butterfly.\n\nButterflies are lepidopterans. So Rex is a lepidopteran.\n\nEach lepidopteran is an insect. So Rex is an insect.\n\nEach insect is an arthropod. So Rex is an arthropod.\n\nEvery arthropod is segmented. So Rex is segmented.\n\nTherefore, the answer is False. </think>\n<answer> False </answer>",
+        "truth_norm": 0,
+        "abstract_raw_prompt": "Given facts: Each {symbol_5} is an {symbol_6}. {symbol_3} are {symbol_4}. {symbol_5} are not eight-legged. {symbol_2} are {symbol_3}. {symbol_6} are {symbol_9}. Each {symbol_8} is not segmented. {symbol_9} are {symbol_10}. Every {symbol_11} is not {symbol_12}. Each {symbol_4} is a {symbol_5}. Every {symbol_6} is segmented. Each {symbol_10} is an {symbol_11}.\n\nGiven {symbol_1} is a {symbol_2}, answer the question: True or false: {symbol_1} is not {symbol_7}.",
+        "abstract_prompt": "Given facts: Each {symbol_5} is an {symbol_6}. {symbol_3} are {symbol_4}. {symbol_5} are not eight-legged. {symbol_2} are {symbol_3}. {symbol_6} are {symbol_9}. Each {symbol_8} is not segmented. {symbol_9} are {symbol_10}. Every {symbol_11} is not {symbol_12}. Each {symbol_4} is a {symbol_5}. Every {symbol_6} is segmented. Each {symbol_10} is an {symbol_11}.\n\nGiven {symbol_1} is a {symbol_2}, answer the question: True or false: {symbol_1} is not {symbol_7}.\n\nShow your work in <think> </think> tags. And return the final answer \"True\" or \"False\" in <answer> </answer> tags, for example <answer> True </answer>",
+        "abstract_reasoning": "<think> Let's think about it step by step. First, we have {symbol_1} is a {symbol_2}.\n\n{symbol_2} are {symbol_3}. So {symbol_1} is a {symbol_3}.\n\n{symbol_3} are {symbol_4}. So {symbol_1} is a {symbol_4}.\n\nEach {symbol_4} is an {symbol_5}. So {symbol_1} is an {symbol_5}.\n\nEach {symbol_5} is an {symbol_6}. So {symbol_1} is an {symbol_6}.\n\nEvery {symbol_6} is {symbol_7}. So {symbol_1} is {symbol_7}.\n\nTherefore, the answer is False. </think>\n<answer> False </answer>",
+        "var2name_map": {
+            "Rex": {
+                "variable": "{symbol_1}",
+                "name": "Rex",
+                "set_description": null,
+                "unset_description": null
+            },
+            "painted lady": {
+                "variable": "{symbol_2}",
+                "name": "painted lady",
+                "set_description": null,
+                "unset_description": null
+            },
+            "butterfly": {
+                "variable": "{symbol_3}",
+                "name": "butterfly",
+                "set_description": null,
+                "unset_description": null
+            },
+            "lepidopteran": {
+                "variable": "{symbol_4}",
+                "name": "lepidopteran",
+                "set_description": null,
+                "unset_description": null
+            },
+            "insect": {
+                "variable": "{symbol_5}",
+                "name": "insect",
+                "set_description": null,
+                "unset_description": null
+            },
+            "arthropod": {
+                "variable": "{symbol_6}",
+                "name": "arthropod",
+                "set_description": null,
+                "unset_description": null
+            },
+            "segmented": {
+                "variable": "{symbol_7}",
+                "name": "segmented",
+                "set_description": null,
+                "unset_description": null
+            },
+            "nematode": {
+                "variable": "{symbol_8}",
+                "name": "nematode",
+                "set_description": null,
+                "unset_description": null
+            },
+            "protostome": {
+                "variable": "{symbol_9}",
+                "name": "protostome",
+                "set_description": null,
+                "unset_description": null
+            },
+            "invertebrate": {
+                "variable": "{symbol_10}",
+                "name": "invertebrate",
+                "set_description": null,
+                "unset_description": null
+            },
+            "animal": {
+                "variable": "{symbol_11}",
+                "name": "animal",
+                "set_description": null,
+                "unset_description": null
+            },
+            "unicellular": {
+                "variable": "{symbol_12}",
+                "name": "unicellular",
+                "set_description": null,
+                "unset_description": null
+            }
+        },
+        "abstract_valid": false
+    },
+    {
+        "Facts": "Animals are multicellular. Chordates are bilaterians. Cats are felines. Every carnivore is carnivorous. Every mammal is warm-blooded. Every vertebrate is a chordate. Each mammal is a vertebrate. Felines are carnivores. Carnivores are mammals. Every bilaterian is an animal. Each snake is not warm-blooded.",
+        "Query": "True or false: Polly is warm-blooded.",
+        "claims": [
+            "Polly is a cat.",
+            "Polly is a feline.",
+            "Polly is a carnivore.",
+            "Polly is a mammal.",
+            "Polly is warm-blooded."
+        ],
+        "next_steps": [
+            "Cats are felines.",
+            "Felines are carnivores.",
+            "Carnivores are mammals.",
+            "Every mammal is warm-blooded.",
+            "Finish."
+        ],
+        "truth": "True",
+        "raw_prompt": "Given facts: Animals are multicellular. Chordates are bilaterians. Cats are felines. Every carnivore is carnivorous. Every mammal is warm-blooded. Every vertebrate is a chordate. Each mammal is a vertebrate. Felines are carnivores. Carnivores are mammals. Every bilaterian is an animal. Each snake is not warm-blooded.\n\nGiven Polly is a cat, answer the question: True or false: Polly is warm-blooded.",
+        "prompt": "Given facts: Animals are multicellular. Chordates are bilaterians. Cats are felines. Every carnivore is carnivorous. Every mammal is warm-blooded. Every vertebrate is a chordate. Each mammal is a vertebrate. Felines are carnivores. Carnivores are mammals. Every bilaterian is an animal. Each snake is not warm-blooded.\n\nGiven Polly is a cat, answer the question: True or false: Polly is warm-blooded.\n\nShow your work in <think> </think> tags. And return the final answer \"True\" or \"False\" in <answer> </answer> tags, for example <answer> True </answer>",
+        "query_suffix": "Show your work in <think> </think> tags. And return the final answer \"True\" or \"False\" in <answer> </answer> tags, for example <answer> True </answer>",
+        "response": "<think> Let's think about it step by step. First, we have Polly is a cat.\n\nCats are felines. So Polly is a feline.\n\nFelines are carnivores. So Polly is a carnivore.\n\nCarnivores are mammals. So Polly is a mammal.\n\nEvery mammal is warm-blooded. So Polly is warm-blooded.\n\nTherefore, the answer is True. </think>\n<answer> True </answer>",
+        "truth_norm": 1,
+        "abstract_raw_prompt": "Given facts: {symbol_9}s are multicellular. {symbol_8}s are bilaterians. {symbol_2}s are {symbol_3}s. Every {symbol_4} is carnivorous. Every {symbol_5} is {symbol_6}. Every {symbol_7} is a {symbol_2}. Each {symbol_5} is a {symbol_7}. {symbol_3}s are {symbol_4}s. {symbol_4}s are {symbol_5}s. Every {symbol_8} is an {symbol_9}. Each {symbol_10} is not {symbol_6}.\n\nGiven {symbol_1} is a {symbol_2}, answer the question: True or false: {symbol_1} is {symbol_6}.",
+        "abstract_prompt": "Given facts: {symbol_9}s are multicellular. {symbol_8}s are bilaterians. {symbol_2}s are {symbol_3}s. Every {symbol_4} is carnivorous. Every {symbol_5} is {symbol_6}. Every {symbol_7} is a {symbol_2}. Each {symbol_5} is a {symbol_7}. {symbol_3}s are {symbol_4}s. {symbol_4}s are {symbol_5}s. Every {symbol_8} is an {symbol_9}. Each {symbol_10} is not {symbol_6}.\n\nGiven {symbol_1} is a {symbol_2}, answer the question: True or false: {symbol_1} is {symbol_6}.\n\nShow your work in <think> </think> tags. And return the final answer \"True\" or \"False\" in <answer> </answer> tags, for example <answer> True </answer>",
+        "abstract_reasoning": "<think> Let's think about it step by step. First, we have {symbol_1} is a {symbol_2}.\n\n{symbol_2}s are {symbol_3}s. So {symbol_1} is a {symbol_3}.\n\n{symbol_3}s are {symbol_4}s. So {symbol_1} is a {symbol_4}.\n\n{symbol_4}s are {symbol_5}s. So {symbol_1} is a {symbol_5}.\n\nEvery {symbol_5} is {symbol_6}. So {symbol_1} is {symbol_6}.\n\nTherefore, the answer is True. </think>\n<answer> True </answer>",
+        "var2name_map": {
+            "Polly": {
+                "variable": "{symbol_1}",
+                "name": "Polly",
+                "set_description": null,
+                "unset_description": null
+            },
+            "cat": {
+                "variable": "{symbol_2}",
+                "name": "cat",
+                "set_description": null,
+                "unset_description": null
+            },
+            "feline": {
+                "variable": "{symbol_3}",
+                "name": "feline",
+                "set_description": null,
+                "unset_description": null
+            },
+            "carnivore": {
+                "variable": "{symbol_4}",
+                "name": "carnivore",
+                "set_description": null,
+                "unset_description": null
+            },
+            "mammal": {
+                "variable": "{symbol_5}",
+                "name": "mammal",
+                "set_description": null,
+                "unset_description": null
+            },
+            "warm-blooded": {
+                "variable": "{symbol_6}",
+                "name": "warm-blooded",
+                "set_description": null,
+                "unset_description": null
+            },
+            "vertebrate": {
+                "variable": "{symbol_7}",
+                "name": "vertebrate",
+                "set_description": null,
+                "unset_description": null
+            },
+            "bilaterian": {
+                "variable": "{symbol_8}",
+                "name": "bilaterian",
+                "set_description": null,
+                "unset_description": null
+            },
+            "animal": {
+                "variable": "{symbol_9}",
+                "name": "animal",
+                "set_description": null,
+                "unset_description": null
+            },
+            "snake": {
+                "variable": "{symbol_10}",
+                "name": "snake",
+                "set_description": null,
+                "unset_description": null
+            }
+        },
+        "abstract_valid": false
+    },
+    {
+        "Facts": "Each insect is an arthropod. Every lepidopteran is an insect. Each arthropod is an invertebrate. Insects are not eight-legged. Nematodes are not segmented. Each animal is not unicellular. Butterflies are lepidopterans. Each arthropod is segmented. Each invertebrate is an animal.",
+        "Query": "True or false: Sam is segmented.",
+        "claims": [
+            "Sam is a butterfly.",
+            "Sam is a lepidopteran.",
+            "Sam is an insect.",
+            "Sam is an arthropod.",
+            "Sam is segmented."
+        ],
+        "next_steps": [
+            "Butterflies are lepidopterans.",
+            "Every lepidopteran is an insect.",
+            "Each insect is an arthropod.",
+            "Each arthropod is segmented.",
+            "Finish."
+        ],
+        "truth": "True",
+        "raw_prompt": "Given facts: Each insect is an arthropod. Every lepidopteran is an insect. Each arthropod is an invertebrate. Insects are not eight-legged. Nematodes are not segmented. Each animal is not unicellular. Butterflies are lepidopterans. Each arthropod is segmented. Each invertebrate is an animal.\n\nGiven Sam is a butterfly, answer the question: True or false: Sam is segmented.",
+        "prompt": "Given facts: Each insect is an arthropod. Every lepidopteran is an insect. Each arthropod is an invertebrate. Insects are not eight-legged. Nematodes are not segmented. Each animal is not unicellular. Butterflies are lepidopterans. Each arthropod is segmented. Each invertebrate is an animal.\n\nGiven Sam is a butterfly, answer the question: True or false: Sam is segmented.\n\nShow your work in <think> </think> tags. And return the final answer \"True\" or \"False\" in <answer> </answer> tags, for example <answer> True </answer>",
+        "query_suffix": "Show your work in <think> </think> tags. And return the final answer \"True\" or \"False\" in <answer> </answer> tags, for example <answer> True </answer>",
+        "response": "<think> Let's think about it step by step. First, we have Sam is a butterfly.\n\nButterflies are lepidopterans. So Sam is a lepidopteran.\n\nEvery lepidopteran is an insect. So Sam is an insect.\n\nEach insect is an arthropod. So Sam is an arthropod.\n\nEach arthropod is segmented. So Sam is segmented.\n\nTherefore, the answer is True. </think>\n<answer> True </answer>",
+        "truth_norm": 1,
+        "abstract_raw_prompt": "Given facts: Each {symbol_4} is an {symbol_5}. Every {symbol_3} is an {symbol_4}. Each {symbol_5} is an {symbol_6}. {symbol_4} are not {symbol_9}. {symbol_11} are not segmented. Each {symbol_7} is not {symbol_10}. {symbol_2}s are {symbol_3}s. Each {symbol_5} is segmented. Each {symbol_6} is an {symbol_7}.\n\nGiven {symbol_1} is a {symbol_2}, answer the question: True or false: {symbol_1} is {symbol_8}.",
+        "abstract_prompt": "Given facts: Each {symbol_4} is an {symbol_5}. Every {symbol_3} is an {symbol_4}. Each {symbol_5} is an {symbol_6}. {symbol_4} are not {symbol_9}. {symbol_11} are not segmented. Each {symbol_7} is not {symbol_10}. {symbol_2}s are {symbol_3}s. Each {symbol_5} is segmented. Each {symbol_6} is an {symbol_7}.\n\nGiven {symbol_1} is a {symbol_2}, answer the question: True or false: {symbol_1} is {symbol_8}.\n\nShow your work in <think> </think> tags. And return the final answer \"True\" or \"False\" in <answer> </answer> tags, for example <answer> True </answer>",
+        "abstract_reasoning": "<think> Let's think about it step by step. First, we have {symbol_1} is a {symbol_2}.\n\n{symbol_2}s are {symbol_3}s. So {symbol_1} is a {symbol_3}.\n\nEvery {symbol_3} is an {symbol_4}. So {symbol_1} is an {symbol_4}.\n\nEach {symbol_4} is an {symbol_5}. So {symbol_1} is an {symbol_5}.\n\nEach {symbol_5} is {symbol_8}. So {symbol_1} is {symbol_8}.\n\nTherefore, the answer is True. </think>\n<answer> True </answer>",
+        "var2name_map": {
+            "Sam": {
+                "variable": "{symbol_1}",
+                "name": "Sam",
+                "set_description": null,
+                "unset_description": null
+            },
+            "butterfly": {
+                "variable": "{symbol_2}",
+                "name": "butterfly",
+                "set_description": null,
+                "unset_description": null
+            },
+            "lepidopteran": {
+                "variable": "{symbol_3}",
+                "name": "lepidopteran",
+                "set_description": null,
+                "unset_description": null
+            },
+            "insect": {
+                "variable": "{symbol_4}",
+                "name": "insect",
+                "set_description": null,
+                "unset_description": null
+            },
+            "arthropod": {
+                "variable": "{symbol_5}",
+                "name": "arthropod",
+                "set_description": null,
+                "unset_description": null
+            },
+            "invertebrate": {
+                "variable": "{symbol_6}",
+                "name": "invertebrate",
+                "set_description": null,
+                "unset_description": null
+            },
+            "animal": {
+                "variable": "{symbol_7}",
+                "name": "animal",
+                "set_description": null,
+                "unset_description": null
+            },
+            "segmented": {
+                "variable": "{symbol_8}",
+                "name": "segmented",
+                "set_description": null,
+                "unset_description": null
+            },
+            "eight-legged": {
+                "variable": "{symbol_9}",
+                "name": "eight-legged",
+                "set_description": null,
+                "unset_description": null
+            },
+            "unicellular": {
+                "variable": "{symbol_10}",
+                "name": "unicellular",
+                "set_description": null,
+                "unset_description": null
+            },
+            "nematode": {
+                "variable": "{symbol_11}",
+                "name": "nematode",
+                "set_description": null,
+                "unset_description": null
+            }
+        },
+        "abstract_valid": false
+    }
+]
